@@ -5,7 +5,7 @@
 ## 共享类型
 
 ```typescript
-type Difficulty = 'easy' | 'medium' | 'hard';
+type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 type CellIndex = number;            // 0-80
 type CellValue = number;            // 0=空, 1-9
 type GameStatus = 'playing' | 'won' | 'lost';
@@ -64,7 +64,7 @@ interface GameSave {
 ## GameController（core 编排服务）
 - `newGame(difficulty: Difficulty): void` — 生成谜题并创建 GameState，清空旧存档
 - `continueGame(save: GameSave): void` — 从存档恢复 GameState
-- `inputDigit(value: CellValue): void` — 依笔记模式分发 fill/toggleNote
+- `inputDigit(value: CellValue): { index: CellIndex; result: 'correct' | 'wrong' | 'ignored' | 'note' } | null` — 依笔记模式分发 fill/toggleNote，返回判定结果供表现层驱动特效（第二轮调整）
 - `erase(): void` / `undo(): void` / `redo(): void` / `hint(): void` / `reset(): void` / `toggleNoteMode(): void`
 - `selectCell(index: CellIndex): void`
 - `tick(seconds: number): void` — 转发计时并触发自动保存

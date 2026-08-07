@@ -5,13 +5,14 @@
 ```text
 MenuScene (Phaser Scene)
   - 继续上次游戏按钮（hasSave 时显示）
-  - 新游戏按钮 + 难度选择（简单/中等/困难）
+  - 新游戏按钮 + 难度选择（简单/中等/困难/专家，第三轮扩展）
 
 GameScene (Phaser Scene)
   - BoardView        9x9 棋盘
   - NumberPad        棋盘下方一行横向数字按钮（1-9 + 清除）
   - ControlBar       撤销/重做/提示/笔记/新游戏/重开 + 计时 + 错误计数
   - ResultOverlay    胜利/失败覆盖层（GameScene 内实现）
+  - VfxManager       连击特效（第二轮新增）：streak 4 档分层、格子粒子爆发、行/列/宫扫光、氛围特效（边框脉冲/上升粒子/屏幕边缘粒子框）、填错破碎+震屏清零
 ```
 
 ## BoardView
@@ -45,9 +46,10 @@ GameScene (Phaser Scene)
 3. 选"继续" → `SaveManager.load()` 成功 → `GameController.continueGame(save)` → GameScene；失败 → 降级为新游戏入口（BR-23）
 
 ### 填数流
-1. 点击格子选中 → 点 NumberPad 数字或按键盘 1-9 → `GameController.inputDigit(value)`
+1. 点击格子选中 → 点 NumberPad 数字或按键盘 1-9 → `GameController.inputDigit(value)` 返回 `{index, result}`
 2. noteMode=false → fill；noteMode=true → toggleNote
 3. 事件 `state:changed`/`conflict:updated` → BoardView 重绘；`mistakes:changed` → ControlBar 更新
+4. result=correct → `VfxManager.playCorrect`（含行/列/宫完成检测）；result=wrong → `VfxManager.playWrong`（连击清零）
 
 ### 键盘映射
 - 1-9：输入数字（依 noteMode 分发）

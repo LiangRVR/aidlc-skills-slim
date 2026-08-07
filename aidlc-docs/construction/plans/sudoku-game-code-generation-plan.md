@@ -84,6 +84,22 @@
 - [x] **Step 18: 验证与文档**
   `npx tsc --noEmit` + `npx vitest run` + `npm run build` 全绿；更新 frontend-summary.md 与 business-rules.md（BR-27 连击特效）；audit.md 记录
 
+- [x] **Step 19: 变更请求 - 屏幕边缘 vignette 色条改为粒子特效**
+  用户反馈最外层边框特效难看；tier≥3 的全屏边缘色条替换为沿屏幕边缘漂浮的粒子（EdgeZone 发射器）
+  *Stories: US-13*
+
+- [x] **Step 20: 第三轮 FR-14 专家难度（用户批准 2026-08-06）**
+  `Difficulty` 增加 `'expert'`；生成器预填数 22-25；SaveManager 难度校验；菜单"专家"按钮；游戏内难度标签；BR-02 更新；生成器测试补 expert（唯一解 + 预填数范围，60/60 通过）；README 四档难度
+  *Stories: US-14*
+
+- [x] **Step 21: 变更请求 - 菜单按钮布局**
+  用户反馈按钮整体偏下、随后遮挡标题；MenuScene 按钮组改为按总数垂直居中，起点钳制在标题下方（`max(居中值, height/4 + 90)`）
+  *Stories: US-02、US-14 表现层*
+
+- [x] **Step 22: 变更请求 - 页面布局与背景**
+  用户反馈画布左上角对齐、希望背景统一；`index.html` body 改 flex 水平居中画布，页面背景与画布背景统一为 `#fafafa`
+  *Stories: 全部（视觉呈现）*
+
 ## 故事追溯
 
 | Step | Stories |

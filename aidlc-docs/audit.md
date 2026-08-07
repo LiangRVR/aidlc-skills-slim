@@ -279,3 +279,140 @@
 **Context**: Round 2 - Code Generation for FR-13 complete, awaiting explicit approval to proceed to Build and Test
 
 ---
+
+## Change Request - Tier-3 vignette replaced with edge particles
+**Timestamp**: 2026-08-06T10:05:00Z
+**User Input**: "最外面这个边框的特效太难看了，能不能换成粒子特效？" (with screenshot showing solid purple board border and pink vignette strips)
+**AI Response**: "Replaced tier>=3 full-screen vignette color strips with a particle frame: EdgeZone emitter on the screen rectangle emitting floating particles (tint tier color + white, alpha fade), tracked as 'vfx-edge' ambient object with tint updates; cleanup/reset unchanged. Verified tsc 0 errors and vite build OK. Updated plan (Step 19 [x]), frontend-summary.md, BR-29."
+**Context**: Code Generation (unit: sudoku-game) - change request applied, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Round 3 Requirements Analysis - Expert Difficulty (minimal depth)
+**Timestamp**: 2026-08-06T10:20:00Z
+**User Input**: "我想增加一个难度：专家。难度应该比困难还要难"
+**AI Response**: "Requirements Analysis (minimal): clear request, no clarification needed. Added FR-14 (专家难度, givens 22-25, unique solution guaranteed, menu + difficulty label support) + round-3 intent analysis to requirements.md; added US-14 (GWT acceptance criteria) to stories.md with coverage table updated to FR-1~FR-14. Stage assessment: Application/Functional Design SKIP (trivial extension of existing components). Implementation plan: Difficulty type + generator givens range + MenuScene button + GameScene label + BR-02 update + generator tests, then verify tsc/vitest/build. Awaiting approval."
+**Context**: Round 3 - Requirements Analysis (minimal) complete, awaiting approval of FR-14 implementation plan
+
+---
+
+## Round 3 - User Approval (FR-14 implementation)
+**Timestamp**: 2026-08-06T10:25:00Z
+**User Input**: "继续"
+**AI Response**: "Approved. Implementing FR-14: Difficulty 'expert', generator givens 22-25, menu button + label, BR-02 update, tests, verify."
+**Context**: Round 3 - Code Generation Part 2 for FR-14 started
+
+---
+
+## Round 3 - FR-14 Implementation Complete
+**Timestamp**: 2026-08-06T10:30:00Z
+**User Input**: "[Execution of approved plan]"
+**AI Response**: "Implemented FR-14 (Step 20): Difficulty 'expert' added to types.ts; GIVEN_RANGES expert [22,25] in sudoku-generator.ts; SaveManager DIFFICULTIES validation updated; MenuScene 专家 button (4th option); GameScene label 专家; tests updated (expert unique-solution + givens range). Verification: tsc 0 errors, vitest 60/60 (expert generation ~240ms/puzzle), vite build OK. Updated BR-02, README (四档难度), plan Step 20 [x]."
+**Context**: Round 3 - Code Generation for FR-14 complete, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Change Request - Menu buttons vertical centering
+**Timestamp**: 2026-08-06T10:40:00Z
+**User Input**: "按钮往下偏了，不好看" (with screenshot showing 6 buttons shifted below center)
+**AI Response**: "MenuScene.create now computes total button count (continue? + 新游戏 + 4 difficulties) and centers the group vertically: startY = height/2 - ((total-1)*70)/2. Verified tsc 0 errors, vite build OK."
+**Context**: Code Generation (unit: sudoku-game) - change request applied, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Change Request - Menu buttons overlapped title
+**Timestamp**: 2026-08-06T10:45:00Z
+**User Input**: "遮住标题了" (with screenshot showing first button overlapping the 数独 title)
+**AI Response**: "Centering counted hidden difficulty buttons, pushing the first button onto the title at height/4. Fixed by clamping: startY = max(centered, height/4 + 90). Verified tsc 0 errors, vite build OK."
+**Context**: Code Generation (unit: sudoku-game) - change request applied, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Change Request - Page layout: center canvas, gray background
+**Timestamp**: 2026-08-06T10:50:00Z
+**User Input**: "现在默认是左上角对齐的，能不能改成水平居中对齐，页面背景整体是灰色？"
+**AI Response**: "index.html body CSS: margin 0, min-height 100vh, flex + justify-content center (horizontal centering of the canvas), background #e0e0e0. Verified vite build OK."
+**Context**: Code Generation (unit: sudoku-game) - change request applied, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Change Request - Unify page background with canvas color
+**Timestamp**: 2026-08-06T10:55:00Z
+**User Input**: "或者整个页面的背景色与中间游戏区域的背景色一样。"
+**AI Response**: "Changed body background from #e0e0e0 to #fafafa to match Phaser canvas backgroundColor (src/main.ts). Horizontal centering kept. Verified vite build OK."
+**Context**: Code Generation (unit: sudoku-game) - change request applied, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Plan Tracking Correction
+**Timestamp**: 2026-08-06T11:00:00Z
+**User Input**: "这些变更都不需要在`sudoku-game-code-generation-plan.md`里说明吗？"
+**AI Response**: "Oversight acknowledged. Added Steps 21 (menu button vertical centering + title clamp) and 22 (page horizontal centering + unified #fafafa background) to sudoku-game-code-generation-plan.md, marked [x]. Going forward every change request gets a plan step in the same interaction."
+**Context**: Code Generation (unit: sudoku-game) - plan-level checkbox tracking corrected
+
+---
+
+## Documentation Consistency Sweep
+**Timestamp**: 2026-08-06T11:05:00Z
+**User Input**: "检查下还有哪些文档遗漏了？"
+**AI Response**: "Full sweep of aidlc-docs against current code. Fixed stale content: requirements.md (FR-2 note re FR-14 expert, summary line); stories.md (US-02 round-3 extension note); components.md (MenuScene 4 difficulties + centered layout, GameScene VFX dispatch, added component 12 VfxManager); component-methods.md (Difficulty union +expert, inputDigit return signature); domain-entities.md (expert 22-25); business-logic-model.md (expert ranges); business-logic-summary.md (expert range, parity note 四档, inputDigit return, 60 cases/5 files, generator 10 cases); frontend-summary.md (MenuScene 4 buttons + centering, index.html layout, round-3 verification 60/60); frontend-components.md (4 difficulties, VfxManager in structure, fill flow VFX step). aidlc-state.md confirmed accurate (Code Generation IN PROGRESS). Historical Q&A/plan files intentionally left as records."
+**Context**: Code Generation (unit: sudoku-game) - documentation consistency restored, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Process Improvement - AGENTS.md Created
+**Timestamp**: 2026-08-06T11:15:00Z
+**User Input**: "反思下，为什么你遗漏了这么多的文档修改？" then "先写到`AGENTS.md`里吧"
+**AI Response**: "Reflected: root causes were treating changes as code-only fixes, no change-to-doc impact mapping, and verification gate lacking doc-consistency checks. Created workspace AGENTS.md codifying: (1) change-to-doc impact analysis with grep sweep before presenting completion, (2) same-interaction plan step tracking for every change request, (3) four-part verification gate (tsc + vitest + build + doc grep). Historical Q&A files exempt from retroactive edits."
+**Context**: Code Generation (unit: sudoku-game) - process rule persisted in AGENTS.md, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Process Improvement - Doc-Consistency Promoted to Skill Extension
+**Timestamp**: 2026-08-06T11:25:00Z
+**User Input**: "我在想`文档一致性检查`这个事，是不是写到`.agents/skills/aidlc-workflows/references/extensions/`目录去更好？你判断一下" then "实施这个方案，记得用英文写入skill"
+**AI Response**: "Judged yes: the problem is a workflow-level defect, the extensions mechanism matches (cross-cutting quality concern like security/resiliency), and no opt-in file means always-enforced per skill convention. Created .agents/skills/aidlc-workflows/references/extensions/documentation/doc-consistency/doc-consistency.md in English with rules DOC-01 (change-to-artifact impact analysis), DOC-02 (same-interaction plan tracking), DOC-03 (documentation gate in completion verification), DOC-04 (historical records append-only), DOC-05 (generic artifacts, no cross-project leakage) - all blocking by default, mirroring security-baseline enforcement format. AGENTS.md slimmed to a pointer to the extension."
+**Context**: Code Generation (unit: sudoku-game) - doc-consistency rules now a mandatory skill extension, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Decision - Doc-Consistency Stays Always-Enforced (no opt-in)
+**Timestamp**: 2026-08-06T11:35:00Z
+**User Input**: "是不是还是要加一个`.opt-in.md`文件？因为只有在发生需求变更的时候才要考虑文档一致性问题。如果是初次开发，本身就不用考虑文档一致性问题吧？" then "继续吧"
+**AI Response**: "Recommended against opt-in: (1) opt-in decision happens at Requirements Analysis, before anyone knows whether change requests will occur - opting out would remove protection exactly when needed; (2) initial development is not immune - stage-gate Request Changes loops are where doc rot begins (proven by this project's own history); (3) cost asymmetry - the rule file is ~100 lines and self-scopes to N/A when no changes occur. User accepted. No .opt-in.md file created; doc-consistency remains always-enforced."
+**Context**: Code Generation (unit: sudoku-game) - extension design decision finalized, awaiting explicit approval to proceed to Build and Test
+
+---
+
+## Code Generation - APPROVED, Build and Test Started
+**Timestamp**: 2026-08-06T11:40:00Z
+**User Input**: "继续"
+**AI Response**: "User approved proceeding to Build and Test. Loading build-and-test.md rules and generating build/test instruction artifacts."
+**Context**: CONSTRUCTION - Build and Test started
+
+---
+
+## Build and Test Stage
+**Timestamp**: 2026-08-06T11:50:00Z
+**Build Status**: Success (tsc 0 errors, vite build OK, gzip ~350KB, chunk-size warning accepted)
+**Test Status**: Pass (60/60 unit tests; 6 manual integration scenarios defined; performance automated checks pass - expert generation ~240ms, bundle within target)
+**Files Generated**:
+- build-instructions.md
+- unit-test-instructions.md
+- integration-test-instructions.md
+- performance-test-instructions.md
+- build-and-test-summary.md
+
+**AI Response**: "Generated all 5 build-and-test artifacts under aidlc-docs/construction/build-and-test/. Presented completion message with review pointer and 2-option gate (Request Changes / Approve & Continue to Operations)."
+**Context**: CONSTRUCTION - Build and Test artifacts complete, awaiting explicit approval to proceed to Operations
+
+---
+
+## Build and Test - APPROVED, Operations Reached (workflow complete)
+**Timestamp**: 2026-08-06T11:55:00Z
+**User Input**: "继续"
+**AI Response**: "User approved build and test results. Operations stage is a placeholder per references/operations/operations.md - the AI-DLC workflow ends after Build and Test. Updated aidlc-state.md: Code Generation and Build and Test marked COMPLETED, Operations marked PLACEHOLDER-REACHED, current stage set to OPERATIONS. Workflow complete."
+**Context**: OPERATIONS - PLACEHOLDER reached; AI-DLC workflow complete for unit sudoku-game
+
+---
+

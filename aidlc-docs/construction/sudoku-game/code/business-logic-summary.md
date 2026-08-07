@@ -15,7 +15,7 @@
 | `src/core/game-state.ts` | 单局状态机：fill / erase / toggleNote / undo / redo / applyHint / reset / tick / toSave / fromSave |
 | `src/core/game-controller.ts` | 编排服务：newGame / continueGame / inputDigit / 自动存档 / 存档清除 |
 | `src/persistence/save-manager.ts` | localStorage 存档（固定 key `sudoku-game-save`），版本 + 结构校验，损坏降级 |
-| `tests/*.test.ts` | 5 个测试文件，58 个用例（见 §8） |
+| `tests/*.test.ts` | 5 个测试文件，60 个用例（见 §8） |
 
 约束遵守：`core/` 与 `persistence/` 零 Phaser 依赖，可独立于 UI 运行与测试；`GameController` 是 core → persistence 的唯一入口（与 component-dependency.md 一致）。
 
@@ -28,9 +28,9 @@
 ## 3. 谜题生成器（SudokuGenerator）
 
 1. **完整解**：从空盘出发随机化回溯（候选数洗牌后尝试），得到随机解。
-2. **目标预填数**：在难度区间内随机取 `target`（easy 40-45 / medium 32-39 / hard 26-31）。
+2. **目标预填数**：在难度区间内随机取 `target`（easy 40-45 / medium 32-39 / hard 26-31 / expert 22-25，第三轮新增）。
 3. **对称挖空**：81 格索引随机排序后遍历，按中心对称配对（i 与 80-i）同时挖空；挖后调用 `countSolutions(givens, 2) === 1` 校验唯一性（BR-01），不唯一则回退该对。
-4. **奇偶性保证（关键设计）**：配对挖空使预填数按 81-2k 递减（恒为奇数），而三档难度区间均为 `[偶数, 奇数]`，因此配对挖空终止时预填数必然落在区间内（BR-02 恒成立）。挖空仅在「当前数 - 挖格数 ≥ target」时进行；中心格（索引 40，单格挖）仅当其恰好使预填数等于 target 时挖空，否则跳过，避免破坏奇偶性导致越界。
+4. **奇偶性保证（关键设计）**：配对挖空使预填数按 81-2k 递减（恒为奇数），而四档难度区间均为 `[偶数, 奇数]`，因此配对挖空终止时预填数必然落在区间内（BR-02 恒成立）。挖空仅在「当前数 - 挖格数 ≥ target」时进行；中心格（索引 40，单格挖）仅当其恰好使预填数等于 target 时挖空，否则跳过，避免破坏奇偶性导致越界。
 5. **终止**：预填数降至 target（或 target+1，偶数目标时），或全部格子遍历完毕（接受当前结果）。
 
 ## 4. 规则校验（RuleValidator）
@@ -80,7 +80,7 @@ won/lost 后一切填数/笔记/撤销/重做返回 'ignored'/false
 ## 6. 编排服务（GameController）
 
 - `newGame(difficulty)`：清空旧存档（BR-24）→ 生成谜题 → 创建 GameState；`continueGame(save)`：从存档恢复。
-- `inputDigit(value)`：按当前笔记模式分发 `toggleNote` / `fill`（仅选中格、playing 态、值 1-9）。
+- `inputDigit(value)`：按当前笔记模式分发 `toggleNote` / `fill`（仅选中格、playing 态、值 1-9）；返回 `{ index, result: 'correct'|'wrong'|'ignored'|'note' } | null`，供表现层驱动连击特效（第二轮调整）。
 - `erase/undo/redo/hint/reset/toggleNoteMode/selectCell/tick`：转发至 GameState。
 - **自动存档**：每次有效操作（fill/erase/note/undo/redo/hint）后 + `tick` 每累计 5 秒（仅 playing 态）；won/lost/reset/newGame 均不残留存档。
 
@@ -89,12 +89,12 @@ won/lost 后一切填数/笔记/撤销/重做返回 'ignored'/false
 - localStorage 固定 key `sudoku-game-save`；`save` / `load` / `hasSave` / `clear`。
 - `load` 依次做 JSON 解析、version 匹配（`SAVE_VERSION`）、结构校验（81 格棋盘、notes 81×候选数、Move 字段、mistakes 0-3、status/difficulty 枚举），任何失败返回 null（BR-23 降级），不抛出异常。
 
-## 8. 测试覆盖（58 用例，5 文件）
+## 8. 测试覆盖（60 用例，5 文件）
 
 | 文件 | 用例数 | 覆盖点 |
 |---|---|---|
 | `sudoku-solver.test.ts` | 9 | 空盘求解、已知谜题求解（保持预填）、不可解返回 null（构造即时矛盾实例）、countSolutions 短路/唯一/无解、findHint 空盘/null |
-| `sudoku-generator.test.ts` | 8 | 三档难度唯一解（BR-01）、三档预填数范围（BR-02）、解与预填一致、对称挖空（i 与 80-i） |
+| `sudoku-generator.test.ts` | 10 | 四档难度唯一解（BR-01）、四档预填数范围（BR-02，含 expert 22-25）、解与预填一致、对称挖空（i 与 80-i） |
 | `rule-validator.test.ts` | 8 | 行/列/宫冲突、空格无冲突、不含自身、isCorrect/isComplete |
 | `game-state.test.ts` | 24 | fill 正/误/ignored、冲突事件载荷、笔记切换与自动清除、撤销重做快照恢复（含 mistakes 与关联笔记）、新操作清重做栈、3 次错误锁定、胜利判定与计时停止、erase 仅限用户格、hint 锁定/撤销解锁/无空格 null、reset、存档清除回调（won/lost/reset）、tick、toSave/fromSave 往返（含 lost 态） |
 | `save-manager.test.ts` | 9 | 正常往返、无存档、损坏 JSON / 版本不符 / 结构不符 / 缺字段 / mistakes 越界 → null、clear、GameState.toSave 往返 |

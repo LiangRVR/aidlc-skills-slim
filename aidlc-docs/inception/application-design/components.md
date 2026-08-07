@@ -33,12 +33,12 @@
 
 ### 6. MenuScene
 - **Purpose**: 主菜单与开局流程
-- **Responsibilities**: 展示"继续上次游戏"（有存档时）与"开始新游戏"；难度选择（简单/中等/困难）
+- **Responsibilities**: 展示"继续上次游戏"（有存档时）与"开始新游戏"；难度选择（简单/中等/困难/专家，第三轮扩展）；按钮组按总数垂直居中且起点钳制在标题下方
 - **Interfaces**: Phaser Scene 生命周期（create 等）
 
 ### 7. GameScene
 - **Purpose**: 游戏主场景（编排表现层）
-- **Responsibilities**: 组装 BoardView/NumberPad/ControlBar；订阅 EventBus 事件刷新 UI；将用户输入转发给 GameController；胜利/失败反馈覆盖层；驱动计时
+- **Responsibilities**: 组装 BoardView/NumberPad/ControlBar/VfxManager；订阅 EventBus 事件刷新 UI；将用户输入转发给 GameController 并按返回结果分发特效（playCorrect/playWrong）；胜利/失败反馈覆盖层；驱动计时
 - **Interfaces**: Phaser Scene 生命周期
 
 ## ui/ — Phaser UI 控件
@@ -64,3 +64,8 @@
 - **Purpose**: localStorage 持久化
 - **Responsibilities**: 游戏进度序列化/反序列化；损坏数据降级（返回 null 按新游戏处理）；存档清除
 - **Interfaces**: `save / load / hasSave / clear`
+
+### 12. VfxManager（第二轮新增）
+- **Purpose**: 连击特效表现（FR-13）
+- **Responsibilities**: 连击计数与 4 档分层；填对格子粒子爆发/光环/闪格；行/列/宫完成扫光；棋盘边框脉冲、上升粒子、屏幕边缘粒子框等氛围特效；填错破碎 + 震屏并清零重置
+- **Interfaces**: `playCorrect(index, completedUnits) / playWrong(index) / reset() / destroy()`
