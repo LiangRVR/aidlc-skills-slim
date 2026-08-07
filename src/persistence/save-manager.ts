@@ -3,7 +3,7 @@ import type { CellIndex, CellValue, Difficulty, GameSave, GameStatus, Move } fro
 
 const SAVE_KEY = 'sudoku-game-save';
 
-const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
+const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard', 'expert'];
 const STATUSES: GameStatus[] = ['playing', 'won', 'lost'];
 const MOVE_TYPES: readonly string[] = ['fill', 'erase', 'note', 'hint'];
 

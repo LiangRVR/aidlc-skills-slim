@@ -7,6 +7,7 @@ const GIVEN_RANGES: Record<Difficulty, [number, number]> = {
   easy: [40, 45],
   medium: [32, 39],
   hard: [26, 31],
+  expert: [22, 25],
 };
 
 function shuffle(values: CellValue[]): CellValue[] {

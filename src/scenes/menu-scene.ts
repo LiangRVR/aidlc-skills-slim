@@ -17,9 +17,11 @@ export class MenuScene extends Phaser.Scene {
       .text(width / 2, height / 4, '数独', { fontFamily: 'Arial', fontSize: '64px', color: '#1565c0' })
       .setOrigin(0.5);
 
-    let y = height / 2 - 40;
     const saveManager = new SaveManager();
-    if (saveManager.hasSave()) {
+    const hasSave = saveManager.hasSave();
+    const totalButtons = (hasSave ? 2 : 1) + 4;
+    let y = Math.max(height / 2 - ((totalButtons - 1) * 70) / 2, height / 4 + 90);
+    if (hasSave) {
       this.addButton(width / 2, y, '继续上次游戏', () => {
         const save = saveManager.load();
         if (save) {
@@ -41,6 +43,7 @@ export class MenuScene extends Phaser.Scene {
       { difficulty: 'easy', label: '简单' },
       { difficulty: 'medium', label: '中等' },
       { difficulty: 'hard', label: '困难' },
+      { difficulty: 'expert', label: '专家' },
     ];
     options.forEach(({ difficulty, label }, i) => {
       this.addButton(width / 2, startY + i * 70, label, () => {

@@ -212,20 +212,26 @@ export class VfxManager {
       this.ambientObjects.push(this.ambientEmitter);
     }
     if (this.ambientEmitter) this.ambientEmitter.setParticleTint(color);
-    if (tier >= 3 && !this.ambientObjects.some((o) => o.name === 'vfx-vignette')) {
+    if (tier >= 3 && !this.ambientObjects.some((o) => o.name === 'vfx-edge')) {
       const { width, height } = this.scene.scale;
-      const vignette = this.scene.add.graphics();
-      vignette.name = 'vfx-vignette';
-      const edge = 26;
-      vignette.fillStyle(color, 0.35);
-      vignette.fillRect(0, 0, width, edge);
-      vignette.fillRect(0, height - edge, width, edge);
-      vignette.fillRect(0, 0, edge, height);
-      vignette.fillRect(width - edge, 0, edge, height);
-      this.ambientObjects.push(vignette);
-      this.ambientTweens.push(
-        this.scene.tweens.add({ targets: vignette, alpha: { from: 0.9, to: 0.2 }, duration: 550, yoyo: true, repeat: -1 }),
-      );
+      const rect = new Phaser.Geom.Rectangle(4, 4, width - 8, height - 8);
+      const edgeZone = new Phaser.GameObjects.Particles.Zones.EdgeZone(rect, 300, 0, false, true);
+      const edgeEmitter = this.scene.add.particles(0, 0, 'vfx-dot', {
+        emitZone: edgeZone,
+        speed: { min: 10, max: 35 },
+        angle: { min: 0, max: 360 },
+        lifespan: { min: 1200, max: 2200 },
+        scale: { start: 1, end: 0.2 },
+        alpha: { start: 0.8, end: 0 },
+        tint: [color, 0xffffff],
+        frequency: 60,
+      });
+      edgeEmitter.name = 'vfx-edge';
+      this.ambientObjects.push(edgeEmitter);
     }
+    const edge = this.ambientObjects.find((o) => o.name === 'vfx-edge') as
+      | Phaser.GameObjects.Particles.ParticleEmitter
+      | undefined;
+    if (edge) edge.setParticleTint([color, 0xffffff]);
   }
 }

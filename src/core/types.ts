@@ -1,4 +1,4 @@
-export type Difficulty = 'easy' | 'medium' | 'hard';
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 export type CellIndex = number;
 export type CellValue = number;
 export type GameStatus = 'playing' | 'won' | 'lost';

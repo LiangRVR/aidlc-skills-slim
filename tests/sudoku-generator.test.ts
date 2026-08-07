@@ -7,6 +7,7 @@ const GIVEN_RANGES: Record<Difficulty, [number, number]> = {
   easy: [40, 45],
   medium: [32, 39],
   hard: [26, 31],
+  expert: [22, 25],
 };
 
 function countGivens(puzzle: Puzzle): number {
@@ -14,12 +15,12 @@ function countGivens(puzzle: Puzzle): number {
 }
 
 describe('SudokuGenerator.generate', () => {
-  it.each<Difficulty>(['easy', 'medium', 'hard'])('%s puzzles have exactly one solution', (difficulty) => {
+  it.each<Difficulty>(['easy', 'medium', 'hard', 'expert'])('%s puzzles have exactly one solution', (difficulty) => {
     const puzzle = SudokuGenerator.generate(difficulty);
     expect(SudokuSolver.countSolutions(puzzle.givens, 2)).toBe(1);
   });
 
-  it.each<Difficulty>(['easy', 'medium', 'hard'])('%s puzzles stay within the given-count range', (difficulty) => {
+  it.each<Difficulty>(['easy', 'medium', 'hard', 'expert'])('%s puzzles stay within the given-count range', (difficulty) => {
     const [min, max] = GIVEN_RANGES[difficulty];
     for (let i = 0; i < 5; i++) {
       const puzzle = SudokuGenerator.generate(difficulty);
