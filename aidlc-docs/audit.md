@@ -506,3 +506,219 @@
 
 ---
 
+## Process Improvement - Approval-Gate Semantics Extension Created
+**Timestamp**: 2026-08-07T15:00:00Z
+**User Input**: "继续之前，我想回顾一下aidlc-workflows，现在每步结束后都有两个选项：1. Request Changes; 2. Approve & Continue。但是Approve & Continue是独立的两个选项。Approve只是批准当前阶段，但是不主动继续下一步。Continue才是批准当前阶段，然后继续进行下一步。你觉得呢？" then "能否还是通过在`.agens/skills/aidlc-workflows/references/extensions/`里添加规则来实施？我希望当用户说：Approve、批准、同意、好的。或者类似的语义时，是批准并暂停，同时提醒用户是否继续进行下一步。当用户说: Continue、Go on、继续、下一步等类似的语义时，是批准并继续进行下一步。"
+**AI Response**: "Agreed with the split semantics and implemented it as an always-enforced skill extension (same mechanism as doc-consistency, no .opt-in.md) without touching the 12 stage rule files' message templates. Created .agents/skills/aidlc-workflows/references/extensions/workflow/approval-gate/approval-gate.md in English with rules APG-01 (intent classification: approve-hold vs approve-continue vs request-changes, ambiguous defaults to hold), APG-02 (hold behavior: state marked 'approved (hold) - awaiting continue', no next-stage work, continuation prompt naming next stage), APG-03 (continue = existing Approve & Continue path), APG-04 (resume from hold without re-approval, hold state visible in aidlc-state.md), APG-05 (no template modification - interpretation layer only). Updated workspace AGENTS.md with a pointer. Current gate state: User Stories (Round 4) approved, held at Workflow Planning entrance."
+**Context**: INCEPTION - User Stories (Round 4) COMPLETED and held; next stage: Workflow Planning (awaiting continue signal)
+
+---
+
+## Round 4 - Resume from Hold + Workflow Planning - Plan Created
+**Timestamp**: 2026-08-07T15:10:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue; resumed held gate per APG-04 (no re-approval of User Stories). Executed Workflow Planning: loaded RE/requirements/stories context, impact analysis (architectural transformation, Medium risk, Easy rollback), created execution-plan-round4.md with validated Mermaid visualization + text alternative. EXECUTE: Application Design (standard), Units Generation (standard), Functional Design (per unit), NFR Requirements (minimal, PBT-09 fast-check decision), Code Generation (per unit), Build and Test. SKIP: NFR Design (minimal NFRs, security/resiliency opted out), Infrastructure Design (no cloud, local/LAN). Units: sudoku-server -> sudoku-online-client (sequential, protocol contract frozen at Application Design). Presented plan for approval with Add-Skipped-Stages option."
+**Context**: INCEPTION - Workflow Planning (Round 4) - awaiting explicit plan approval
+
+---
+
+## Round 4 - Workflow Planning APPROVED, Application Design Plan Created
+**Timestamp**: 2026-08-07T15:20:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue. User approved execution plan (6 stages execute, 2 skipped). Marked Workflow Planning complete. Started Application Design: created application-design-plan-round4.md with 6 execution steps (5 mandatory round-4 artifacts + consistency validation, protocol contract freeze as goal) and 5 embedded questions (shared code organization, server-side sudoku logic reuse, frontend local/online architecture, state sync strategy, message format). Waiting for user answers."
+**Context**: INCEPTION - Application Design (Round 4) - awaiting answers to application-design-plan-round4.md questions
+
+---
+
+## Round 4 - Application Design - Answers Received, Artifacts Generated
+**Timestamp**: 2026-08-07T15:35:00Z
+**User Input**: "回答了"
+**AI Response**: "Read application-design-plan-round4.md. Answers: Q1=A (single package with server/ + shared/), Q2=A + counter-question (server reuses src/core; user asked: does online sudoku logic run client or server side, and is cheating possible if client-side? - Answered: with A the logic is SERVER-side authoritative; judgments/mistake counts/note-clearing all execute on server; solution is NEVER sent to online clients; clients send only operation intents, so a modified client cannot forge a correct fill; residual risk = external solver tools, acceptable for LAN co-op demo; written into artifacts as anti-cheat decision), Q3=A (dual controllers, IGameController interface), Q4=A (op-confirm-broadcast + full snapshot on join), Q5=A (JSON {type, payload}). Step 8 analysis: no ambiguity (Q2 note is an explanation request, not a conflicting answer). No follow-up needed. Generated 5 artifacts: components-round4.md (S1-S5 server + H1 shared + F1-F7 frontend), component-methods-round4.md (PROTOCOL CONTRACT FROZEN: CellEntry/Snapshot/Op models, 3 client + 8 server message types, all method signatures), services-round4.md (connection/matchmaking/op-confirm/timer orchestration), component-dependency-round4.md (matrix, acyclic, src<->server only via shared/), application-design-round4.md (consolidated, FR-15~FR-29 coverage 100%). All 6 plan steps marked [x]."
+**Context**: INCEPTION - Application Design (Round 4) - artifacts generated, awaiting explicit approval
+
+---
+
+## Round 4 - Application Design - Change Requests Applied
+**Timestamp**: 2026-08-07T15:50:00Z
+**User Input**: "两个问题：\n1.  S4. RoomManager  应该是 匹配算法：优先同难度最早开始的可加入房间，否则随机选取难度最相近的**最早开始的**可加入房间，无可加入房间则创建新房间\n2. 我没看到GameRoom生命周期管理的描述，什么时候创建，什么时候销毁。"
+**AI Response**: "Applied 2 changes: (1) Matchmaking refined: nearest-difficulty rooms now pick earliest-started (random only among equidistant tied difficulties), updated in components-round4.md S4, services-round4.md matchmaking pseudocode, component-methods-round4.md RoomManager, application-design-round4.md FR-17 row, requirements.md FR-17 (marked as design-review change), stories.md US-17 acceptance criterion. (2) GameRoom lifecycle documented: create (join miss -> puzzle gen + startedAt + playing), state machine (playing 1-2 players -> won terminal not joinable; personal spectating does not affect room state), destroy (online count 0 -> immediate reclaim by RoomManager, playing or won, no periodic cleanup), added to components-round4.md S5, services-round4.md (new lifecycle orchestration section), component-methods-round4.md GameRoom, application-design-round4.md (new lifecycle section). Plan Step 7 appended and marked [x] per DOC-02. Re-presented completion message."
+**Context**: INCEPTION - Application Design (Round 4) - changes applied, awaiting explicit approval
+
+---
+
+## Round 4 - Application Design - Change Request Applied (2nd)
+**Timestamp**: 2026-08-07T16:00:00Z
+**User Input**: "调整一下，优先加入同难度最早开始的对局；如果没有，则优先加入难度最近的但是难度更难的最早开始的对局；如果还没有，则优先加入难度最近的但是难度更简单的最早开始的对局；如果还没有，就创建一局新的。"
+**AI Response**: "Matchmaking replaced with 4-level priority chain: (1) same difficulty earliest-started; (2) nearest HARDER difficulty tier earliest-started (scan upward from chosen tier); (3) nearest EASIER difficulty tier earliest-started (scan downward); (4) create new. Lookup order examples documented (medium: medium->hard->expert->easy->create; hard: hard->expert->medium->easy->create). Updated all 6 artifacts: components-round4.md S4, services-round4.md pseudocode + examples, component-methods-round4.md RoomManager, application-design-round4.md FR-17 row, requirements.md FR-17, stories.md US-17. Plan Step 8 appended and marked [x] per DOC-02. Re-presented completion message."
+**Context**: INCEPTION - Application Design (Round 4) - 2nd change applied, awaiting explicit approval
+
+---
+
+## Round 4 - Application Design APPROVED
+**Timestamp**: 2026-08-07T16:10:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue. User approved Round 4 application design (5 artifacts, protocol contract frozen, 4-level matchmaking priority, GameRoom lifecycle). Marked Application Design complete in aidlc-state.md. Proceeding to Units Generation."
+**Context**: INCEPTION - Application Design (Round 4) COMPLETED, transitioning to Units Generation
+
+---
+
+## Round 4 - Units Generation - Part 1 Planning
+**Timestamp**: 2026-08-07T16:15:00Z
+**User Input**: "[Awaiting user answers to unit plan questions]"
+**AI Response**: "Created unit-of-work-plan-round4.md with 5 execution steps (3 mandatory round-4 artifacts + boundary validation + story assignment validation) and 3 embedded questions (decomposition granularity 2-unit vs 3-unit vs 1-unit, execution order server-first vs client-first-with-mock, cross-end story mapping strategy). Waiting for user answers."
+**Context**: INCEPTION - Units Generation (Round 4), Part 1 Planning - awaiting answers to unit-of-work-plan-round4.md questions
+
+---
+
+## Round 4 - Application Design - Change Request Applied (3rd, during held Units gate)
+**Timestamp**: 2026-08-07T16:25:00Z
+**User Input**: "不对，不能这么来，匹配算法还是改为：\n1. 同难度最早开始的对局\n2. 难度最近档中最早开始的，但是更难的又稍微优先更简单的（如选“中等”，先“困难\"再“简单”再“专家；如选”困难“，先”专家“再”中等“再简单，如选”简单“，先”中等“再困难”再“专家”）\n3. 均无 → 创建新对局"
+**AI Response**: "Handled per APG-04: change request at held gate, gate remains held. Matchmaking rule replaced: (1) same difficulty earliest; (2) other tiers by ascending distance, harder tier wins ties at equal distance (medium: hard->easy->expert; hard: expert->medium->easy; easy: medium->hard->expert; expert: hard->medium->easy); (3) create new. Updated all 6 artifacts: components-round4.md S4, services-round4.md pseudocode + 4 examples, component-methods-round4.md, application-design-round4.md FR-17, requirements.md FR-17, stories.md US-17. Plan Step 9 appended and marked [x] per DOC-02. Units Generation gate still held awaiting unit plan answers."
+**Context**: INCEPTION - Units Generation (Round 4) gate held; design change applied; awaiting answers to unit-of-work-plan-round4.md questions
+
+---
+
+## Round 4 - Units Generation - Plan Answers Received
+**Timestamp**: 2026-08-07T16:35:00Z
+**User Input**: "回答好了"
+**AI Response**: "Read unit-of-work-plan-round4.md. Answers: Q1=B (three units: shared-protocol, sudoku-server, sudoku-online-client), Q2=A (server before client => effective order shared-protocol -> sudoku-server -> sudoku-online-client, protocol is joint prerequisite), Q3=A (cross-end stories mapped by main logic location with annotation). Step 7 analysis: no ambiguity; Q1=B and Q2=A compose cleanly (protocol first as prerequisite of both). Presented finalized approach for explicit approval before Part 2 Generation."
+**Context**: INCEPTION - Units Generation (Round 4), Part 1 - answers analyzed, awaiting plan approval
+
+---
+
+## Round 4 - Units Generation - Plan APPROVED (hold)
+**Timestamp**: 2026-08-07T16:40:00Z
+**User Input**: "批准"
+**AI Response**: "Classified per APG-01 as approve-hold. Unit of work plan approved (3 units: shared-protocol -> sudoku-server -> sudoku-online-client; cross-end stories mapped by main location). aidlc-state.md updated to 'approved (hold) - awaiting continue to Part 2 Generation'. No generation work started per APG-02; prompted user whether to continue."
+**Context**: INCEPTION - Units Generation (Round 4), Part 1 approved (hold) - awaiting continue signal to start Part 2 Generation
+
+---
+
+## Round 4 - Units Generation - Part 2 Complete
+**Timestamp**: 2026-08-07T16:50:00Z
+**User Input**: "继续"
+**AI Response**: "Resumed from hold per APG-04 (no re-approval). Executed Part 2 per approved plan: generated unit-of-work-round4.md (3 units with responsibilities/deliverables/sizes + unchanged sudoku-game), unit-of-work-dependency-round4.md (dependency matrix, acyclic, protocol coordination point, 3-phase test checkpoints), unit-of-work-story-map-round4.md (US-15~US-29 mapped by main location with cross-end annotations, shared-protocol as enabler, US-01~US-14 unchanged). All 5 plan steps marked [x]. Presented completion message."
+**Context**: INCEPTION - Units Generation (Round 4) complete - awaiting explicit approval to proceed to CONSTRUCTION PHASE
+
+---
+
+## Process Improvement - Audit Attribution Extension Created
+**Timestamp**: 2026-08-07T17:00:00Z
+**User Input**: "我想对`audit.md`里的阶段模板做一下修改……（在 **Context** 后增加 **User**: qtalen / **Email**: qtalen@gmail.com 两行）`User`和`Email`都从git里取。你明白我的意思不？打算怎么改？" then "我还是不想改`SKILL.md`，能改到`.agent/skills/aidlc-workflows/references/extensions/`里吗？"
+**AI Response**: "Implemented as always-enforced skill extension (no .opt-in.md) instead of editing SKILL.md: created .agents/skills/aidlc-workflows/references/extensions/audit/attribution/audit-attribution.md with rules AUD-01 (every new audit entry appends **User**/**Email** after **Context**, all entry types), AUD-02 (values resolved dynamically from git config user.name/user.email at write time, 'unknown' fallback never blocks), AUD-03 (historical entries untouched, append-only per DOC-04), AUD-04 (rule file stays generic, no real identifiers). Resolved this repo's git config: user.name='Peng Qian', user.email='qtalen@gmail.com' — NOTE: differs from the 'qtalen' in user's example, flagged to user. Updated workspace AGENTS.md pointer. This entry is the first to carry the new attribution fields."
+**Context**: INCEPTION - Units Generation (Round 4) approval gate still held; extension effective from this entry onward
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Process Improvement - Extensions Consolidated into workflow-conventions
+**Timestamp**: 2026-08-07T17:20:00Z
+**User Input**: "我这样不停地往`extension`里加东西，会不会导致`aidlc-workflow`占用的token越来越多？" then "合并吧。在保证大模型会准确遵循指示的情况下，尽量精简。"
+**AI Response**: "Merged 3 always-enforced extensions (documentation/doc-consistency ~83 lines, workflow/approval-gate ~120 lines, audit/attribution ~80 lines; total ~283 lines) into a single file references/extensions/workflow/workflow-conventions/workflow-conventions.md (~150 lines): one shared Overview + blocking-finding behavior, three rule groups keeping ALL rule IDs and critical semantics (DOC-01~05, APG-01~05 with full classification word lists, AUD-01~04 with git resolution steps), enforcement integration table. Redundant per-file enforcement boilerplate and verbose examples removed. Deleted the 3 old files and emptied directories. Updated workspace AGENTS.md to a single pointer. Always-enforced extension context cost reduced from ~283 to ~150 lines."
+**Context**: INCEPTION - Units Generation (Round 4) approval gate still held; consolidation effective immediately
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 4 - Units Generation APPROVED, CONSTRUCTION PHASE Started (Unit 1: shared-protocol)
+**Timestamp**: 2026-08-07T17:30:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue; resumed held gate per APG-04. User approved units (shared-protocol -> sudoku-server -> sudoku-online-client). Marked Units Generation complete. Entering CONSTRUCTION PHASE per-unit loop, Unit 1: shared-protocol - Functional Design."
+**Context**: CONSTRUCTION - Functional Design (unit: shared-protocol) started
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 4 - Functional Design (shared-protocol) - Plan Created
+**Timestamp**: 2026-08-07T17:35:00Z
+**User Input**: "[Awaiting user answers to functional design questions]"
+**AI Response**: "Created shared-protocol-functional-design-plan.md with 5 execution steps (business-logic-model, business-rules, domain-entities, testable-properties per PBT-01, consistency validation vs frozen protocol contract) and 2 embedded questions (deserialize validation strictness: per-field vs lenient; protocol version field: none vs versioned). Waiting for user answers."
+**Context**: CONSTRUCTION - Functional Design (unit: shared-protocol) - awaiting answers
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 4 - Functional Design (shared-protocol) - Answers Received, Artifacts Generated
+**Timestamp**: 2026-08-07T17:50:00Z
+**User Input**: "回答了"
+**AI Response**: "Answers: Q1=A (strict per-field validation), Q2=B (versioned envelope). No ambiguity. Q2=B is a frozen-contract change - applied per DOC-01: envelope now {version, type, payload} (PROTOCOL_VERSION=1, mismatch rejected); synced component-methods-round4.md serialization section, application-design-round4.md decision 5, components-round4.md (format + MessageRouter). Generated 4 artifacts: business-logic-model.md (serialize/deserialize flows, error handling, never-throws), business-rules.md (BR-P-01~BR-P-10: envelope, per-field validation, CellEntry consistency, pure functions), domain-entities.md (Envelope/Op/CellEntry/PlayerInfo/Snapshot/messages/CompletedUnit), testable-properties.md (PBT-01: P1 round-trip all 11 types, P2 never-throws invariant, P3 rejection oracle via single-point mutation; type defs marked no-PBT; fast-check + seeds + example-based complement per PBT-08/10). All 5 plan steps marked [x]."
+**Context**: CONSTRUCTION - Functional Design (unit: shared-protocol) complete - awaiting explicit approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 4 - Functional Design (shared-protocol) APPROVED + NFR Requirements (minimal) Complete
+**Timestamp**: 2026-08-07T18:00:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue. Functional Design approved. Executed NFR Requirements at minimal depth (plan documents why no clarification questions needed: stack locked by prior decisions). Generated nfr-requirements.md (performance <1ms/msg, never-throws reliability, fast-check PBT with seeds, strict TS; security N/A per opt-out) and tech-stack-decisions.md (TS/Vitest/fast-check with PBT-09 compliance statement; fast-check to be added as devDependency in Code Generation; excluded ajv/zod/Protobuf with rationale). Both plan steps marked [x]."
+**Context**: CONSTRUCTION - NFR Requirements (unit: shared-protocol) complete - awaiting explicit approval to proceed to Code Generation
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 4 - NFR Requirements (shared-protocol) APPROVED, Code Generation Plan Created
+**Timestamp**: 2026-08-07T18:10:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue. NFR Requirements approved. Created shared-protocol-code-generation-plan.md (7 steps: fast-check install, tsconfig include, shared/protocol.ts per BR-P-01~10, example-based tests, domain generators + PBT P1/P2/P3, full verification tsc+vitest+build, protocol-summary.md). Verification baseline: existing 60 tests unbroken. Presented plan summary for approval."
+**Context**: CONSTRUCTION - Code Generation (unit: shared-protocol) Part 1 - awaiting explicit plan approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 4 - Code Generation (shared-protocol) - Plan APPROVED, Part 2 Complete
+**Timestamp**: 2026-08-07T18:30:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue. Part 2 executed. NOTE: first delegated to executor subagent which returned empty with zero work done (verified via git status) - main agent implemented directly. Created: shared/protocol.ts (all types + envelope + serialize/deserialize, BR-P-01~10), tests/protocol.test.ts (39 example-based), tests/generators.ts (fast-check domain arbitraries + 15 mutators), tests/protocol.pbt.test.ts (P1/P2/P3). Modified: package.json (+fast-check ^3.x), tsconfig.json (+shared include). Verification: tsc 0 errors, vitest 102/102 (60 existing + 39 + 3), vite build OK. DOC-01 sync: README test count 60->102, tech-stack-decisions PBT-09 checklist checked. Step 7: protocol-summary.md generated. All 7 plan steps marked [x]."
+**Context**: CONSTRUCTION - Code Generation (unit: shared-protocol) Part 2 complete - awaiting explicit approval to proceed to Unit 2 (sudoku-server) Functional Design
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 5 - Code Generation (shared-protocol) - APPROVED, Unit 2 Functional Design Started
+**Timestamp**: 2026-08-07T18:45:00Z
+**User Input**: "继续下一步"
+**AI Response**: "Classified per APG-01 as approve-continue: unit 1 Code Generation approved. Advanced to Unit 2 sudoku-server Functional Design. Created functional-design-plan with 5 embedded questions: Q1 room lifecycle after gameWon, Q2 spectator recovery to active, Q3 single-process ws+static hosting, Q4 code reuse of src/core/game-state, Q5 rematch support. Paused for answers per APG-02."
+**Context**: CONSTRUCTION - Functional Design (unit: sudoku-server) - awaiting question answers and explicit plan approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 6 - Functional Design (sudoku-server) - Questions Resolved from Docs, Artifacts Complete
+**Timestamp**: 2026-08-07T19:00:00Z
+**User Input**: "这几个问题，前面的文档有答案吧，你先回顾下文档把答案找到，找不到答案的再问我"
+**AI Response**: "Doc archaeology: all 5 answers found. Q1=application-design-round4 GameRoom lifecycle (won terminal, destroy at 0 online); Q2=FR-23/27 (no in-room recovery, leave+re-match); Q3=FR-16/NFR-7 (independent backend process, no static hosting); Q4=component-dependency-round4 (server imports src/core + shared directly); Q5=FR-27/US-27 (no rematch). Also corrected plan header: unit stories are US-16/17/18/21/22/23/24/25/26/28 per unit-of-work-story-map-round4 (previous BR-G/BR-R references were stale, replaced with FR mapping). Generated 4 artifacts: game-logic.md (orchestration, room state machine, matchmaking chain, op adjudication pipeline incl. GameState single-player semantics adaptation: per-player counters, per-player undo stacks, no lost/hint/reset), business-rules.md (BR-S-01~20 + FR mapping), domain-entities.md (RoomManager/GameRoom/RoomPlayer/MoveRecord/Connection), testable-properties.md (SP-1 matchmaking oracle, SP-2 room invariants, SP-3 broadcast integrity, SP-4 undo isolation, SP-5 refill/reclaim + 12 example-based scenarios). All 6 plan steps marked [x]."
+**Context**: CONSTRUCTION - Functional Design (unit: sudoku-server) complete - awaiting explicit approval to proceed to NFR Requirements (minimal per execution plan)
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 7 - Functional Design (sudoku-server) APPROVED, NFR Requirements (minimal) Complete
+**Timestamp**: 2026-08-07T19:10:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue: sudoku-server Functional Design approved. Executed NFR Requirements (minimal depth, no new questions needed - all NFRs frozen in Round 4: NFR-7/8/9, Security/Resiliency opt-outs). Generated nfr-requirements.md (performance <200ms NFR-8 derived budgets, reliability/authoritative-state, security solution-protection, LAN availability) and tech-stack-decisions.md (ws ^8.x new dependency, tsx ^4.x dev runner, @types/ws; excluded Express/Socket.IO/static-hosting/Redis/loggers with rationale; single-package npm script 'server'). Plan sudoku-server-nfr-requirements-plan.md all steps [x]."
+**Context**: CONSTRUCTION - NFR Requirements (unit: sudoku-server) complete - awaiting explicit approval to proceed to Code Generation (unit 2)
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Round 8 - NFR Requirements (sudoku-server) APPROVED, Code Generation Part 1 (Plan) Presented
+**Timestamp**: 2026-08-07T19:20:00Z
+**User Input**: "继续"
+**AI Response**: "Classified per APG-01 as approve-continue: NFR Requirements approved. Created Code Generation Part 1 plan: 11 steps (deps+scripts, game-room.ts adjudication core, room-manager.ts matchmaking, connection-manager+message-router, index.ts ServerEntry, server-generators.ts, game-room.test.ts 12 example scenarios, room-manager.pbt.test.ts SP-1/SP-5, game-room.pbt.test.ts SP-2/3/4, verification incl. server smoke test, server-summary.md). Story traceability table for US-16~28 included. Paused for plan approval per APG-02."
+**Context**: CONSTRUCTION - Code Generation (unit: sudoku-server) Part 1 - awaiting explicit plan approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
