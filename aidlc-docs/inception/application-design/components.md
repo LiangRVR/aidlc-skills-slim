@@ -46,17 +46,17 @@
 ### 8. BoardView
 - **Purpose**: 9x9 棋盘渲染
 - **Responsibilities**: 网格与宫线绘制；数字/笔记渲染；选中格、关联行列宫、同数字、冲突格高亮；预填格与用户填写视觉区分
-- **Interfaces**: `render(state) / setSelected(index)`
+- **Interfaces**: `constructor(scene, originX, originY, onCellClick)` + `render(snapshot)`（选中态包含在快照中）
 
 ### 9. NumberPad
 - **Purpose**: 屏幕数字输入区
 - **Responsibilities**: 在 9x9 棋盘下方以**一行横向数字按钮**（1-9 依次排开，附清除键）提供输入，不使用九宫格布局；笔记模式下保持同一行布局不变，通过视觉区分（如按钮整体着色/高亮边框/笔记标识）让用户明确感知当前处于笔记模式
-- **Interfaces**: `onInput(callback)`
+- **Interfaces**: `constructor(scene, x, y, onInput)` + `setNoteMode(on)` / `setDisabledDigits(digits)`
 
 ### 10. ControlBar
 - **Purpose**: 功能控制区
 - **Responsibilities**: 撤销/重做/提示/笔记切换/新游戏/重开按钮；计时与错误计数显示（"错误 x/3"）
-- **Interfaces**: `render(status) / onAction(callback)`
+- **Interfaces**: `constructor(scene, x, y, width, onAction)` + `render(info: ControlBarInfo)`
 
 ## persistence/ — 存档层
 
@@ -64,6 +64,8 @@
 - **Purpose**: localStorage 持久化
 - **Responsibilities**: 游戏进度序列化/反序列化；损坏数据降级（返回 null 按新游戏处理）；存档清除
 - **Interfaces**: `save / load / hasSave / clear`
+
+## ui/ — Phaser UI 控件（续）
 
 ### 12. VfxManager（第二轮新增）
 - **Purpose**: 连击特效表现（FR-13）

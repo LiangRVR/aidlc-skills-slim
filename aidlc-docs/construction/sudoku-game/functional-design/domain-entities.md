@@ -22,7 +22,7 @@
 | 属性 | 类型 | 说明 |
 |---|---|---|
 | puzzle | Puzzle | 本局谜题 |
-| difficulty | Difficulty | easy / medium / hard |
+| difficulty | Difficulty | easy / medium / hard / expert |
 | cells | Cell[81] | 棋盘状态 |
 | selectedIndex | 0-80 或 null | 当前选中格 |
 | noteMode | boolean | 笔记模式开关 |

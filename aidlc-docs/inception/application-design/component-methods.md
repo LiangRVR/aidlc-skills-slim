@@ -70,16 +70,17 @@ interface GameSave {
 - `tick(seconds: number): void` — 转发计时并触发自动保存
 
 ## BoardView
-- `render(snapshot: BoardSnapshot): void` — 依核心状态快照重绘棋盘与高亮
-- `setSelected(index: CellIndex | null): void`
+- `constructor(scene: Phaser.Scene, originX: number, originY: number, onCellClick: (index: number) => void)` — 点击回调通过构造函数注入
+- `render(snapshot: BoardSnapshot): void` — 依核心状态快照重绘棋盘与高亮（选中态包含在快照中，无独立 setSelected 方法）
 
 ## NumberPad
-- `onInput(handler: (value: CellValue | 'erase') => void): void`
+- `constructor(scene: Phaser.Scene, x: number, y: number, onInput: (value: number | 'erase') => void)` — 输入回调通过构造函数注入
 - `setNoteMode(on: boolean): void`
+- `setDisabledDigits(digits: Set<number>): void` — 已完成数字按钮置灰禁用（BR-25）
 
 ## ControlBar
-- `onAction(handler: (action: 'undo' | 'redo' | 'hint' | 'note' | 'new' | 'reset') => void): void`
-- `render(info: { elapsedSeconds: number; mistakes: number; maxMistakes: number; canUndo: boolean; canRedo: boolean; noteMode: boolean }): void`
+- `constructor(scene: Phaser.Scene, x: number, y: number, width: number, onAction: (action: ControlAction) => void)` — 动作回调通过构造函数注入；`ControlAction = 'undo' | 'redo' | 'hint' | 'note' | 'new' | 'reset'`
+- `render(info: ControlBarInfo): void` — `ControlBarInfo = { elapsedSeconds: number; mistakes: number; maxMistakes: number; canUndo: boolean; canRedo: boolean; noteMode: boolean; difficultyLabel: string }`
 
 ## SaveManager
 - `save(data: GameSave): void`

@@ -12,7 +12,7 @@ Converting AWS's aidlc-workflow into more general-purpose agent skills, while al
 ```bash
 npm install     # 安装依赖
 npm run dev     # 本地开发服务器（默认 http://localhost:5173）
-npm run test    # 运行单元测试（Vitest，58 个用例）
+npm run test    # 运行单元测试（Vitest，60 个用例）
 npm run build   # 生产构建，产出 dist/ 静态文件（任意静态服务器即可部署）
 ```
 
