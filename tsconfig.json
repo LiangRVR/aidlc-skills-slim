@@ -16,5 +16,5 @@
     "useDefineForClassFields": true,
     "noEmit": true
   },
-  "include": ["src", "shared", "tests"]
+  "include": ["src", "shared", "server", "tests", "scripts"]
 }

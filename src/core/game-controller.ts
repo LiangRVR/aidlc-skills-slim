@@ -6,7 +6,31 @@ import type { CellIndex, CellValue, Difficulty, GameSave } from './types';
 
 const AUTOSAVE_INTERVAL_SECONDS = 5;
 
-export class GameController {
+export interface ControllerCapabilities {
+  hint: boolean;
+  reset: boolean;
+  newGame: boolean;
+}
+
+export interface IGameController {
+  getState(): GameState | null;
+  getBus(): EventBus;
+  newGame(difficulty: Difficulty): void;
+  continueGame(save: GameSave): void;
+  inputDigit(value: CellValue): { index: CellIndex; result: 'correct' | 'wrong' | 'ignored' | 'note' } | null;
+  erase(): void;
+  undo(): void;
+  redo(): void;
+  hint(): void;
+  reset(): void;
+  toggleNoteMode(): void;
+  selectCell(index: CellIndex | null): void;
+  tick(seconds: number): void;
+  isReadOnly(): boolean;
+  capabilities(): ControllerCapabilities;
+}
+
+export class LocalGameController implements IGameController {
   private readonly bus: EventBus;
   private readonly saveManager = new SaveManager();
   private state: GameState | null = null;
@@ -94,6 +118,14 @@ export class GameController {
       this.tickSinceSave = 0;
       this.autosave();
     }
+  }
+
+  isReadOnly(): boolean {
+    return false;
+  }
+
+  capabilities(): ControllerCapabilities {
+    return { hint: true, reset: true, newGame: true };
   }
 
   private wire(): void {

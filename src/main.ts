@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { GameController } from './core/game-controller';
+import { LocalGameController } from './core/game-controller';
 import { MenuScene } from './scenes/menu-scene';
 import { GameScene } from './scenes/game-scene';
 
-const controller = new GameController();
+const controller = new LocalGameController();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,

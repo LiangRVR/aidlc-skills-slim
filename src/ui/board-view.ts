@@ -10,10 +10,14 @@ export interface BoardSnapshot {
   selectedIndex: number | null;
   conflicts: Set<number>;
   wrongCells: Set<number>;
+  owners?: (string | null)[];
+  you?: string | null;
 }
 
 const COLOR_GIVEN = '#212121';
 const COLOR_USER = '#1565c0';
+const COLOR_OWN = '#1565c0';
+const COLOR_OPPONENT = '#212121';
 const COLOR_WRONG = '#d32f2f';
 const COLOR_NOTE = '#616161';
 
@@ -59,13 +63,23 @@ export class BoardView {
 
   render(snapshot: BoardSnapshot): void {
     this.drawHighlights(snapshot);
+    const selected = snapshot.selectedIndex;
+    const selectedValue = selected !== null ? snapshot.board[selected] : 0;
     for (let i = 0; i < 81; i++) {
       const value = snapshot.board[i];
       const text = this.valueTexts[i];
       if (value !== 0) {
         text.setText(String(value));
         const wrong = snapshot.wrongCells.has(i);
-        text.setColor(wrong ? COLOR_WRONG : snapshot.isGiven(i) ? COLOR_GIVEN : COLOR_USER);
+        if (wrong) {
+          text.setColor(COLOR_WRONG);
+        } else if (snapshot.isGiven(i)) {
+          text.setColor(COLOR_GIVEN);
+        } else if (snapshot.owners && snapshot.you) {
+          text.setColor(snapshot.owners[i] === snapshot.you ? COLOR_OWN : COLOR_OPPONENT);
+        } else {
+          text.setColor(COLOR_USER);
+        }
         text.setFontStyle(snapshot.isGiven(i) ? 'bold' : 'normal');
       } else {
         text.setText('');
@@ -73,7 +87,9 @@ export class BoardView {
       const cellNotes = snapshot.notes[i] ?? [];
       for (let n = 0; n < 9; n++) {
         const show = value === 0 && cellNotes.includes(n + 1);
-        this.noteTexts[i][n].setText(show ? String(n + 1) : '');
+        const noteText = this.noteTexts[i][n];
+        noteText.setText(show ? String(n + 1) : '');
+        noteText.setFontStyle(show && n + 1 === selectedValue ? 'bold' : 'normal');
       }
     }
   }

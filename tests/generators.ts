@@ -90,10 +90,10 @@ export const arbClientMessage: fc.Arbitrary<ClientMessage> = fc.oneof(
 export const arbServerMessage: fc.Arbitrary<ServerMessage> = fc.oneof(
   arbSnapshot.map((snapshot) => ({ type: 'joined' as const, payload: snapshot })),
   fc
-    .tuple(arbPlayerId, arbOp, fc.constantFrom('correct', 'wrong', 'note', 'erased', 'undone', 'redone'), arbCellEntry, fc.array(arbIndex, { maxLength: 20 }), fc.array(arbCompletedUnit, { maxLength: 3 }))
-    .map(([playerId, op, result, cell, clearedNotes, completedUnits]) => ({
+    .tuple(arbPlayerId, arbOp, fc.constantFrom('correct', 'wrong', 'note', 'erased', 'undone', 'redone'), arbIndex, arbCellEntry, fc.array(arbIndex, { maxLength: 20 }), fc.array(arbCompletedUnit, { maxLength: 3 }))
+    .map(([playerId, op, result, cellIndex, cell, clearedNotes, completedUnits]) => ({
       type: 'opApplied' as const,
-      payload: { playerId, op, result: result as 'correct' | 'wrong' | 'note' | 'erased' | 'undone' | 'redone', cell, clearedNotes, completedUnits },
+      payload: { playerId, op, result: result as 'correct' | 'wrong' | 'note' | 'erased' | 'undone' | 'redone', cellIndex, cell, clearedNotes, completedUnits },
     })),
   fc.tuple(arbPlayerId, fc.string({ minLength: 1 })).map(([playerId, reason]) => ({
     type: 'opRejected' as const,

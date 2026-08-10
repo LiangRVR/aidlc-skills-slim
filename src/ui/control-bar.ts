@@ -10,6 +10,8 @@ export interface ControlBarInfo {
   canRedo: boolean;
   noteMode: boolean;
   difficultyLabel: string;
+  capabilities?: { hint: boolean; reset: boolean; newGame: boolean };
+  newButtonLabel?: string;
 }
 
 const ACTIONS: { action: ControlAction; label: string }[] = [
@@ -64,6 +66,14 @@ export class ControlBar {
     this.difficultyText.setText(info.difficultyLabel);
     this.setEnabled('undo', info.canUndo);
     this.setEnabled('redo', info.canRedo);
+    if (info.capabilities) {
+      this.setEnabled('hint', info.capabilities.hint);
+      this.setEnabled('reset', info.capabilities.reset);
+    }
+    const newButton = this.buttons.get('new');
+    if (newButton && info.newButtonLabel) {
+      newButton.label.setText(info.newButtonLabel);
+    }
     const note = this.buttons.get('note');
     if (note) {
       note.bg.setFillStyle(info.noteMode ? 0x1565c0 : 0xffffff);

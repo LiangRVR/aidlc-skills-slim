@@ -42,6 +42,13 @@ export const EVENTS = {
   NOTE_MODE_CHANGED: 'note-mode:changed',
   GAME_WON: 'game:won',
   GAME_LOST: 'game:lost',
+  VFX_CORRECT: 'vfx:correct',
+  VFX_WRONG: 'vfx:wrong',
+  CONNECTION_LOST: 'connection:lost',
+  ONLINE_PLAYER_JOINED: 'online:player-joined',
+  ONLINE_PLAYER_LEFT: 'online:player-left',
+  ONLINE_OPPONENT_LOST: 'online:opponent-lost',
+  ERROR_MESSAGE: 'error:message',
 } as const;
 
 export const MAX_MISTAKES = 3;

@@ -56,6 +56,7 @@ export type ServerMessage =
         playerId: PlayerId;
         op: Op;
         result: OpResult;
+        cellIndex: number;
         cell: CellEntry;
         clearedNotes: number[];
         completedUnits: CompletedUnit[];
@@ -192,6 +193,7 @@ function validPayload(type: string, p: unknown): boolean {
         isNonEmptyString(p.playerId) &&
         isOp(p.op) &&
         isOpResult(p.result) &&
+        isInt(p.cellIndex, 0, 80) &&
         isCellEntry(p.cell) &&
         isIndexArray(p.clearedNotes) &&
         Array.isArray(p.completedUnits) &&
