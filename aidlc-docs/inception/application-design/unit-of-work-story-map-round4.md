@@ -11,7 +11,7 @@
 | US-17 开局与匹配 | sudoku-server | sudoku-online-client | 匹配算法在服务端；前端负责难度选择与 join 流程 |
 | US-18 实时状态共享 | sudoku-server | sudoku-online-client | 权威状态与广播在服务端；前端镜像渲染与初始快照应用 |
 | US-19 加入提示 | sudoku-online-client | sudoku-server | JoinToast 在前端；服务端发 `playerJoined` |
-| US-20 特效/视觉隔离 | sudoku-online-client | sudoku-server | VFX 隔离与蓝色渲染在前端；服务端在 opApplied 附带 completedUnits |
+| US-20 特效/视觉隔离 | sudoku-online-client | sudoku-server | VFX 隔离与归属着色在前端；服务端在 opApplied 附带 completedUnits |
 | US-21 笔记共享/清除 | sudoku-server | sudoku-online-client | 笔记不区分归属与联动清除在服务端；前端同步渲染 |
 | US-22 合作胜利 | sudoku-server | sudoku-online-client | 完成判定与 `gameWon` 在服务端；前端胜利覆盖层 |
 | US-23 独立错误/旁观 | sudoku-server | sudoku-online-client | 计数与 `playerLost` 在服务端；前端旁观锁定与状态展示 |
@@ -21,6 +21,7 @@
 | US-27 对局控制限制 | sudoku-online-client | — | 前端 capabilities() 禁用重开/新游戏 + 离开房间流程 |
 | US-28 断线补位 | sudoku-server | sudoku-online-client | 房间保留与补位在服务端；前端"对方已离开"提示 |
 | US-29 本地回归 | sudoku-online-client | — | 接口抽取零行为变化 + 回归验证 |
+| US-30 在线人数显示（第五轮新增） | sudoku-online-client | sudoku-server | 人数徽标在前端（joined/playerJoined/playerLeft 驱动）；服务端既有消息已足够，无需协议变更 |
 
 ## shared-protocol 的故事归属
 - 无直接用户故事（使能单元）；支撑 US-16/17/18/21 的协议与序列化可靠性（PBT 往返测试）

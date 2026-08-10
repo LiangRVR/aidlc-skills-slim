@@ -127,7 +127,7 @@ interface Snapshot {                    // 全量状态（加入时下发）
 - `show(text: string): void` — 右上角非阻塞提示，~3 秒自动淡出
 
 ### MenuScene（改动点）
-- 模式选择：`线上游戏` → 难度选择 → 连接 `ws://<host>:8081` → 发送 `join`；`本地游戏` → 现有流程不变
+- 模式选择：双页滑动——page1 `线上游戏`/`本地游戏` → 滑至 page2 难度选择（含返回）→ 线上连接 `ws://<host>:8081` 发送 `join`；本地走现有流程
 
 ### GameScene（改动点）
 - 依模式构造 Local/Online 控制器；联机模式：订阅 `playerJoined` → JoinToast、`playerLost`/`gameWon` → 对应覆盖层、`isReadOnly()` 阻断输入；返回主菜单时发送 `leave` 并 `close()`；不实例化 SaveManager 自动存档

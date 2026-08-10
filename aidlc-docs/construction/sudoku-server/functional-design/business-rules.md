@@ -20,7 +20,7 @@
 | BR-S-07 | 错误各自独立计数（上限 3）；错满 3 次仅该玩家判负转旁观（`playerLost` 广播），其余玩家继续；观战者可看棋盘不可操作 | FR-23 / US-23 |
 | BR-S-08 | 观战玩家的任何 op → `opRejected('spectating')`，无棋盘副作用 | FR-23 |
 | BR-S-09 | erase 权限：非 given 且非空格，且（该格 wrong=true 或 owner=发起者）——任何人可擦任何错填格；正确格仅归属者可擦 | FR-26 / US-26 |
-| BR-S-10 | undo/redo 仅回退/重做自己的操作记录（每玩家独立栈）；空栈拒绝（'nothing-to-undo'/'nothing-to-redo'）；不得触及对方 owner 格 | FR-25 / US-25 |
+| BR-S-10 | undo/redo 仅回退/重做自己的操作记录（每玩家独立栈）；空栈拒绝（'nothing-to-undo'/'nothing-to-redo'）；不得触及对方 owner 格。**过期记录语义（2026-08-07 PBT SP-4 修正）**：undo 时若主格当前状态与记录 after 快照不一致（此后被他人改动），跳过恢复、丢弃该记录、照常广播 'undone'（携带当前格状态），不计数变更；redo 对称（对比 before 快照）；联动笔记的恢复/清除仅作用于仍为空格的格子 | FR-25 / US-25 |
 | BR-S-11 | 笔记共享无归属：双方互见互改，toggle 语义；填对联动清除作用于双方笔记 | FR-21 / US-21 |
 | BR-S-16 | 服务端为状态权威：客户端操作经服务端确认（opApplied 广播含发起者）后才在镜像生效 | FR-18 |
 | BR-S-17 | 提示、重开、新游戏在线上模式无服务端入口（协议无对应消息类型，收到即属非法/未知 type） | FR-25 / FR-27 / US-27 |
@@ -31,6 +31,12 @@
 | BR-S-15 | 入站帧 deserialize 为 null（非法/版本不兼容，BR-P-04）→ 回复 `error('消息格式非法或版本不兼容')`，连接不主动断开 | shared-protocol 设计 |
 | BR-S-19 | 广播目标：joined 仅加入者；opRejected/error 仅发起者；opApplied/playerJoined/playerLeft/playerLost/gameWon 房间全体成员 | services-round4 |
 | BR-S-20 | 同一 op 的事件顺序：opApplied 先于由该 op 触发的 playerLost/gameWon 广播（先确认操作，再宣告结果） | 设计决策 |
+
+## 实施期补充规则（2026-08-07 Code Generation 细化）
+| 规则 | 内容 | 来源 |
+|---|---|---|
+| BR-S-21 | fill 覆盖权限：目标格须为空格、owner=发起者的格子、或 wrong=true 的错填格（与 BR-S-09 擦除权限同构）；覆盖对方**正确**格 → `opRejected('not-overwritable')`；填入与现值相同且无笔记变化 → `opRejected('no-op')`；**重复提交与现值相同的错填（自己的 wrong 格同值）同样 → `opRejected('no-op')`**——幂等语义，防止重复帧/客户端重试导致同一错误被重复计数（PBT SP-2 发现，2026-08-07 修正） | 实施期决策（单机 fill 覆盖语义的双人扩展） |
+| BR-S-22 | undo 撤销自己的错填时返还该次错误计数（mistakes-1），与单机模式 Move.mistakesDelta 语义一致；观战者无法 undo（BR-S-08 先行拦截），故返还不会导致观战恢复 | 实施期决策（对齐单机语义） |
 
 ## 需求映射校验
 | 需求 | 规则 | 状态 |

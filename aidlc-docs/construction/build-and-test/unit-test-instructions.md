@@ -1,28 +1,29 @@
-# Unit Test Execution - sudoku-game
+# Unit Test Execution
 
 ## Run Unit Tests
 
 ### 1. Execute All Unit Tests
 ```bash
-npx vitest run
+npm test
 ```
 
-### 2. Review Test Results
-- **Expected**: 60 tests pass, 0 failures，5 个测试文件全绿
-- **Test Files**:
-  | 文件 | 用例数 | 覆盖点 |
-  |---|---|---|
-  | `tests/sudoku-solver.test.ts` | 9 | 求解/解计数短路/findHint |
-  | `tests/sudoku-generator.test.ts` | 10 | 四档难度唯一解与预填数范围（含 expert 22-25）、解与预填一致、对称挖空 |
-  | `tests/rule-validator.test.ts` | 8 | 冲突/正确性/完成判定 |
-  | `tests/game-state.test.ts` | 24 | fill/erase/note/undo/redo/hint/reset/状态机/存档往返 |
-  | `tests/save-manager.test.ts` | 9 | 存档往返、损坏降级、clear |
-- **Test Report Location**: 终端输出（Vitest 默认 reporter）
-- **预期耗时**: < 5 秒（expert 难度生成测试约占 1.2 秒）
+### 2. E2E 集成冒烟（真实 ws 双客户端，需无端口占用）
+```bash
+npm run test:e2e
+```
 
-### 3. Fix Failing Tests
+### 3. Review Test Results
+- **Expected**: **136 tests pass, 0 failures**（Vitest）；E2E 输出 `ALL SCENARIOS PASSED`（11 个断言）
+- **Test Files**: 12 个（tests/ 下 11 个 vitest 文件 + scripts/e2e-smoke.ts）
+- **Coverage Breakdown**:
+  - 本地核心（sudoku-game 既有）：60 例（game-state/solver/generator/rule-validator/save-manager）
+  - shared-protocol：39 example + 3 PBT（P1/P2/P3）
+  - sudoku-server：12 example + 7 PBT（SP-1~SP-5）
+  - sudoku-online-client：11 example + 4 PBT（CP-1~CP-4）
+  - E2E：双客户端 ws 集成冒烟 11 断言
+
+### 4. Fix Failing Tests
 If tests fail:
-1. 查看终端输出中的失败用例与断言详情
-2. 定位对应核心模块（`src/core/`）
-3. 修复代码（核心逻辑修改后可委派子代理，UI 层由主代理处理）
-4. 重新运行 `npx vitest run` 直至全绿
+1. PBT 失败时 fast-check 输出 seed 与最简反例（PBT-08）——用相同 seed 复现后定位
+2. `npx vitest run tests/<file>` 单文件聚焦
+3. 修复后全量 rerun 至全绿

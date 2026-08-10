@@ -45,15 +45,15 @@ op(playerId, op)
 
 ### 模式选择编排（MenuScene）
 ```
-线上游戏 -> 难度选择 -> WebSocketClient.connect(ws://<页面host>:8081)
-  -> 失败：中文提示"无法连接到服务器"，留在菜单
+线上游戏 -> 滑动至第二屏难度选择（含返回）-> WebSocketClient.connect(ws://<页面host>:8081)
+  -> 失败：中文提示"无法连接到服务器"，留在第二屏可返回
   -> 成功：send join{difficulty} -> 等待 joined -> 进入 GameScene(OnlineGameController)
 本地游戏 -> 现有流程（含存档续玩），零改动
 ```
 
 ### 联机对局编排（GameScene + OnlineGameController）
 - 输入路径：用户输入 -> OnlineGameController -> `op` 消息 -> （服务端确认）-> `opApplied` -> 更新镜像 -> EventBus 渲染
-- VFX 路径：仅 `opApplied.playerId == you && result == 'correct'` 触发本地 VfxManager（completedUnits 取自消息）；对方 correct 只渲染数字（蓝色）
+- VFX 路径：仅 `opApplied.playerId == you && result == 'correct'` 触发本地 VfxManager（completedUnits 取自消息）；对方 correct 只渲染数字（黑色）
 - 加入提示：`playerJoined` -> JoinToast.show("有玩家加入")
 - 旁观：`playerLost.playerId == you` -> isReadOnly()=true + 旁观覆盖层；对方 lost -> 状态栏提示
 - 离开：返回主菜单/页面关闭 -> send `leave` + close()；`playerLeft` -> 状态栏提示"对方已离开，等待新玩家"

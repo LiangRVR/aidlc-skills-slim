@@ -25,7 +25,7 @@
 
 - **类型**：前端应用扩展（在既有 sudoku-game 单元代码基础上增量开发，同 `src/`）
 - **目录**：`src/`（新增 `src/net/`、`src/ui/join-toast.ts` 等；改动 scenes/ui/core）
-- **职责**：IGameController 接口抽取与 LocalGameController 改名（零行为变化）、OnlineGameController、WebSocketClient、MenuScene 模式选择、GameScene 联机适配（旁观/离开/连接失败）、JoinToast、BoardView 归属蓝色
+- **职责**：IGameController 接口抽取与 LocalGameController 改名（零行为变化）、OnlineGameController、WebSocketClient、MenuScene 模式选择、GameScene 联机适配（旁观/离开/连接失败）、JoinToast、BoardView 归属着色（自己蓝/对方黑）
 - **交付物**：F1-F7 组件 + 前端逻辑单测（镜像状态应用、VFX 隔离派发等）
 - **依赖**：Unit 1（shared-protocol）；既有单元 `sudoku-game`（FR-29 回归约束：本地模式行为不变）
 - **规模**：中（~4 新文件 + ~5 改动文件 + 测试）

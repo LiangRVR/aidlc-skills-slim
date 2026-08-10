@@ -18,6 +18,9 @@
 - `serialize(msg: ProtocolMessage): string` — 注入 version + JSON
 - `deserialize(raw: string): ProtocolMessage | null` — 五步管线，任意输入不抛异常
 
+## 修订记录
+- **2026-08-07（Unit 3 实施期）**：`opApplied` payload 增加必填字段 `cellIndex`（0-80 校验）。原因：undo/redo 的 op 无 index 字段，客户端镜像无法定位变更格。同步范围：类型、校验器、tests/protocol.test.ts、tests/generators.ts、server/game-room.ts 全部 7 处广播点。
+
 ## 测试覆盖
 
 | 测试文件 | 用例数 | 内容 |

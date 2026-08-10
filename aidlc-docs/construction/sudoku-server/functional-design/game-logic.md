@@ -113,7 +113,7 @@ note(i, v)
 - `undo`：弹自己栈顶，按快照逆向恢复（fill 逆向=恢复空格与被清笔记；erase 逆向=恢复原 cell；note 逆向=反向 toggle）；压入自己 redo 栈。空栈 → opRejected('nothing-to-undo')。
 - `redo`：对称。空栈 → opRejected('nothing-to-redo')。
 - **隔离性（BR-S-10）**：undo/redo 只触及自己记录涉及的格子；对方 owner 格与对方操作历史不受影响。
-- 成功 → opApplied(result: 'undone' | 'redone', cell, ...)（涉及多格恢复时以主格为 cell，清笔记恢复并入 clearedNotes 反向——协议单格模型下：fill 逆向产生的多格笔记恢复通过多条 opApplied 广播，主格为 'undone'，笔记恢复格各发一条 result:'note'。设计取舍：复用现有协议类型，不扩协议。）
+- 成功 → opApplied(result: 'undone' | 'redone', cellIndex: 主格, cell, ...)（涉及多格恢复时以主格为 cell，清笔记恢复并入 clearedNotes 反向——协议单格模型下：fill 逆向产生的多格笔记恢复通过多条 opApplied 广播，主格为 'undone'，笔记恢复格各发一条 result:'note'（cellIndex=该格）。设计取舍：复用现有协议类型，不扩协议。**2026-08-07 协议修订：opApplied 统一携带 cellIndex（undo/redo 定位必需）**）
 
 ## 9. 胜利判定（US-22/FR-22）
 
@@ -133,20 +133,29 @@ leave / ws close
   → players.length === 1 且 status=playing → 房间自动回到可加入池（BR-S-12）
 ```
 
-## 11. GameState 单机语义适配策略（复用 src/core 的边界）
+## 11. src/core 复用边界（实施期细化，2026-08-07 修订）
 
-GameRoom 持有一个 `GameState` 实例作为棋盘/笔记/完成判定引擎，但**不采用**其单机规则：
+**原设计**：GameRoom 持有一个 `GameState` 实例作为棋盘/笔记/完成判定引擎，单机语义适配（计数归零等）。
 
-| GameState 单机行为 | 服务端适配 |
+**实施期发现**：`GameState` 无法承载双人语义，修订为**不复用 GameState 类**，理由：
+1. `GameState` 不追踪格子 **owner/wrong**（协议 CellEntry 的核心字段），GameRoom 无论如何都要自建归属层；
+2. 其单机规则（错误计数、3 次判负 lost、单一 undo/redo 栈）耦合在 **private 字段**中，无法在不修改 core 的前提下旁路；修改 core 则触碰 FR-29（本地模式回归约束）风险面；
+3. 其棋盘操作原语（fill/erase/toggleNote）本身仅十余行逻辑，复用收益低、适配成本高。
+
+**修订后复用清单**（server 自建权威棋盘 `CellEntry[81]` + 归属/错误信息，行为与单机完全一致）：
+
+| 复用（import） | 用途 |
 |---|---|
-| 单一错误计数、3 次判负（lost） | **弃用**。双人独立计数在 GameRoom 维护（RoomPlayer.mistakes）；每次操作后 GameState 内部 mistakes 归零、status 强制保持 playing，lost 永不触发 |
-| 单一 undo/redo 栈 | **弃用**。GameRoom 为每玩家维护独立 MoveRecord 栈（§8） |
-| EventBus 事件（state:changed 等） | 服务端不订阅、不转发；广播事件由 GameRoom 显式生成（opApplied 等） |
-| 提示（applyHint） | 无入口（FR-25，协议无 hint 消息，BR-S-17） |
-| reset/newGame | 无入口（FR-27，BR-S-17） |
-| 存档（SaveManager） | 服务端无存档（纯内存，NFR-7） |
+| `Puzzle`、`CellIndex`、`CellValue`、`Difficulty`（types） | 纯类型 |
+| `SudokuGenerator.generate` | 创建房间时生成谜题 + solution |
+| `RuleValidator.isComplete` / `isCorrect` | 胜利判定 / fill 对错判定 |
 
-复用部分：棋盘格模型与操作原语（fill/erase/toggleNote 的格级语义）、笔记联动清除、RuleValidator.isComplete、SudokuGenerator（谜题+solution）、SudokuSolver（唯一解验证由 Generator 内置保证）。
+| 不复用 | 替代 |
+|---|---|
+| GameState（整类） | GameRoom 自建 CellEntry[81] 权威状态与操作原语 |
+| GameState.peersOf（private） | server 内部实现 peers/units 辅助（~20 行，与 core 逻辑同构） |
+| Move（types） | MoveRecord 按 domain-entities.md 自建（含归属快照） |
+| EventBus / SaveManager / applyHint / reset / newGame | 无服务端入口（BR-S-17） |
 
 ## 12. 计时（US-24/FR-24）
 

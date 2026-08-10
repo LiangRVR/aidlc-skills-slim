@@ -67,6 +67,18 @@
 ## Construction Phase Progress (unit 2)
 - [ ] Functional Design - EXECUTE - COMPLETED 2026-08-07T19:00:00Z, approved
 - [ ] NFR Requirements - EXECUTE (minimal) - COMPLETED 2026-08-07T19:10:00Z, approved
+- [ ] Code Generation (unit 2) - EXECUTE - COMPLETED 2026-08-07T20:30:00Z, approved
+
+### Current Unit: sudoku-online-client（Story US-15、19、20、27、29 + 跨端配合）
+
+## Construction Phase Progress (unit 3)
+- [ ] Functional Design - EXECUTE - COMPLETED 2026-08-07T21:10:00Z, approved（5 artifacts，含 FR-30）
+- [ ] NFR Requirements - EXECUTE (minimal) - COMPLETED 2026-08-07T21:20:00Z, approved
+- [ ] Code Generation (unit 3) - EXECUTE - COMPLETED 2026-08-07T22:10:00Z, approved
+- [x] Build and Test - EXECUTE - COMPLETED 2026-08-07T22:30:00Z, APPROVED 2026-08-10（136/136 + E2E 3/3；人工联调 6 场景 + UI 变更目验 2026-08-10 用户确认全部通过）
+
+### 🟡 OPERATIONS PHASE (Round 4)
+- [x] Operations - PLACEHOLDER - REACHED 2026-08-10（占位阶段，Round 4 工作流至此结束）
 - [ ] Functional Design (unit 2: sudoku-server) - EXECUTE
 - [ ] Code Generation (unit 2) - EXECUTE
 - [ ] Functional Design (unit 3: sudoku-online-client) - EXECUTE

@@ -35,7 +35,7 @@ workspace-root/
 | FR-17 开局与匹配 | S4 RoomManager.joinOrCreate/findMatch（同难度最早 > 档位距离升序（同距离更难优先）最早 > 创建；joinable=playing 且 1 人） |
 | FR-18 实时共享 | S5 GameRoom 权威状态 + opApplied 广播 + joined Snapshot |
 | FR-19 加入提示 | `playerJoined` → F6 JoinToast（右上角非阻塞） |
-| FR-20 特效/视觉隔离 | F2 仅自己 correct 触发 VFX（completedUnits 服务端附带）；F7 对方数字蓝色、错填均红 |
+| FR-20 特效/视觉隔离 | F2 仅自己 correct 触发 VFX（completedUnits 服务端附带）；F7 归属着色（自己蓝/对方黑）、错填均红 |
 | FR-21 笔记共享/清除 | CellEntry.notes 不区分归属；fill 正确时服务端清除并广播 clearedNotes |
 | FR-22 合作胜利 | S5 全盘完成 → `gameWon` 广播双方 |
 | FR-23 独立错误/旁观 | PlayerInfo.mistakes 各自计数；满 3 → `playerLost` 转旁观；F2 isReadOnly 阻断 |

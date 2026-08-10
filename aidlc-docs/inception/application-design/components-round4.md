@@ -60,9 +60,9 @@
 - **Responsibilities**: 抽取 `IGameController` 接口（GameScene 只依赖接口）；现有 GameController 更名为实现 `LocalGameController`，行为零变化（FR-29）
 - **Interfaces**: `IGameController`（方法集见 component-methods-round4.md）
 
-### F2. OnlineGameController（新增 src/core/online-game-controller.ts）
+### F2. OnlineGameController（新增 src/net/online-game-controller.ts，Functional Design Q2 定稿：自 src/core 移至 src/net，保持 core 无网络依赖）
 - **Purpose**: 联机模式控制器，实现 IGameController
-- **Responsibilities**: 将本地输入转换为操作消息发送服务端；维护镜像棋盘状态用于渲染；应用服务端广播（对方填数蓝色、笔记同步、旁观锁定）；本地 VFX 仅在自己填对的确认事件时触发；撤销/重做仅发送自己的操作；旁观状态阻断输入；提示/重开/新游戏禁用
+- **Responsibilities**: 将本地输入转换为操作消息发送服务端；维护镜像棋盘状态用于渲染；应用服务端广播（对方填数黑色、笔记同步、旁观锁定）；本地 VFX 仅在自己填对的确认事件时触发；撤销/重做仅发送自己的操作；旁观状态阻断输入；提示/重开/新游戏禁用
 - **Interfaces**: 同 IGameController + `applyServerMessage(msg): void`
 
 ### F3. WebSocketClient（新增 src/net/ws-client.ts）
@@ -72,7 +72,7 @@
 
 ### F4. MenuScene 扩展（改动 src/scenes/menu-scene.ts）
 - **Purpose**: 模式选择入口（FR-15）
-- **Responsibilities**: 提供"线上游戏 / 本地游戏"两个选项；本地路径保持现有行为（含存档续玩）；线上路径进入难度选择后发起连接与匹配
+- **Responsibilities**: 提供"线上游戏 / 本地游戏"两个选项；本地路径保持现有行为（含存档续玩）；线上路径进入难度选择后发起连接与匹配；双页滑动导航（点击模式滑至第二屏难度选择，含返回按钮，实施期修订）
 - **Interfaces**: Phaser Scene 生命周期
 
 ### F5. GameScene 联机适配（改动 src/scenes/game-scene.ts）
@@ -86,6 +86,6 @@
 - **Interfaces**: `show(text: string): void`
 
 ### F7. BoardView 归属着色（改动 src/ui/board-view.ts）
-- **Purpose**: 对方填入数字的蓝色区分（FR-20）
-- **Responsibilities**: 渲染数据增加 cell owner 归属（自己/对方/预填）；对方填入数字渲染为蓝色，自己保持黑色，错填仍标红
+- **Purpose**: 填数归属着色区分（FR-20；实施期修订为自己蓝/对方黑）
+- **Responsibilities**: 渲染数据增加 cell owner 归属（自己/对方/预填）；自己填入数字渲染为蓝色，对方为黑色，错填仍标红
 - **Interfaces**: `render(snapshot)`（snapshot 含 owner 信息）

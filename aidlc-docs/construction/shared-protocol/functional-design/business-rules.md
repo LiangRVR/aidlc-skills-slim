@@ -29,7 +29,7 @@
 | type | 字段规则 |
 |---|---|
 | `joined` | 完整 Snapshot（见 domain-entities.md）：cells 恰 81 项、players 1-2 人、status 合法、you 必须在 players 中 |
-| `opApplied` | `playerId` 非空；`op` 合法；`result ∈ {correct, wrong, note, erased, undone, redone}`；`cell` 为合法 CellEntry；`clearedNotes` 为合法 index 数组；`completedUnits` 为 `{type: 'row'|'col'|'box', index: 0-8}` 数组（可为空） |
+| `opApplied` | `playerId` 非空；`op` 合法；`result ∈ {correct, wrong, note, erased, undone, redone}`；**`cellIndex` 整数 0-80（2026-08-07 修订：undo/redo 无 op.index，客户端镜像定位必需）**；`cell` 为合法 CellEntry；`clearedNotes` 为合法 index 数组；`completedUnits` 为 `{type: 'row'|'col'|'box', index: 0-8}` 数组（可为空） |
 | `opRejected` | `playerId` 非空；`reason` 非空字符串 |
 | `playerJoined` | `player` 为合法 PlayerInfo |
 | `playerLeft` / `playerLost` | `playerId` 非空 |
