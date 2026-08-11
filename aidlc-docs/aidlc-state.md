@@ -13,9 +13,9 @@
 ## Extension Configuration
 | Extension | Enabled | Decided At |
 |---|---|---|
-| Property-Based Testing | Yes (full enforcement, Round 4) | Requirements Analysis (Round 4) |
-| Security Baseline | No | Requirements Analysis (Round 4 re-confirmed) |
-| Resiliency Baseline | No | Requirements Analysis (Round 4 re-confirmed) |
+| Property-Based Testing | Yes (full enforcement, Round 4; Round 5 re-confirmed) | Requirements Analysis (Round 5) |
+| Security Baseline | No | Requirements Analysis (Round 5 re-confirmed) |
+| Resiliency Baseline | No | Requirements Analysis (Round 5 re-confirmed) |
 
 ## Code Location Rules
 - **Application Code**: Workspace root (NEVER in aidlc-docs/)
@@ -89,3 +89,27 @@
 - **Stages to Execute**: Application Design, Units Generation, Functional Design (per unit), NFR Requirements (minimal), Code Generation (per unit), Build and Test
 - **Stages to Skip**: NFR Design (NFR 极简，无韧性/性能模式需求), Infrastructure Design (无云资源，本机/局域网形态)
 - **Units**: sudoku-server (backend) -> sudoku-online-client (frontend, depends on server protocol)
+
+## Round 5 - Competitive Score-Race Mode (2026-08-10)
+
+### 🔵 INCEPTION PHASE (Round 5)
+- [ ] Workspace Detection - COMPLETED 2026-08-10T18:15:00Z (brownfield; Round 4 complete, code committed 1332a12)
+- [x] Reverse Engineering - SKIP (Round 4 artifacts current, no code changes since)
+- [ ] Requirements Analysis - EXECUTE (standard depth) - COMPLETED 2026-08-10T18:55:00Z, approved (approve-continue)
+- [ ] User Stories - EXECUTE (standard depth) - COMPLETED 2026-08-10T19:35:00Z, approved (approve-continue)
+- [ ] Workflow Planning - EXECUTE - COMPLETED 2026-08-10T19:55:00Z, approved (approve-continue)
+- [ ] Application Design - EXECUTE (minimal depth) - COMPLETED 2026-08-10T20:50:00Z, approved (approve-continue; 含变更：连击不被对手打断)
+
+### 🟢 CONSTRUCTION PHASE (Round 5)
+- [ ] Functional Design (unit 1: shared-protocol) - EXECUTE - COMPLETED 2026-08-10T21:15:00Z, approved (approve-continue)
+- [ ] NFR Requirements (unit 1) - EXECUTE (minimal) - COMPLETED 2026-08-10T21:20:00Z, approved (approve-continue)
+- [ ] Code Generation (unit 1) - EXECUTE - COMPLETED 2026-08-11T07:35:00Z (63/63 tests green), approved (approve-continue)
+- [ ] Functional Design (unit 2: sudoku-server) - EXECUTE - COMPLETED 2026-08-11T07:55:00Z (v2 rewrite), approved (approve-continue)
+- [ ] NFR Requirements (unit 2) - EXECUTE (minimal) - COMPLETED 2026-08-11T09:45:00Z, approved (approve-continue)
+- [ ] Code Generation (unit 2) - EXECUTE - COMPLETED 2026-08-11T10:40:00Z (99/99 tests green), approved (approve-continue)
+- [ ] Functional Design (unit 3: sudoku-online-client) - EXECUTE - ARTIFACTS COMPLETE 2026-08-11T11:25:00Z (v2 rewrite), awaiting approval
+
+### Current Stage
+- **Stage**: CONSTRUCTION - Functional Design (unit 3: sudoku-online-client, Round 5)
+- **Pending**: user approval -> NFR Requirements (unit 3)
+- **Unit sequence (Round 5)**: shared-protocol ✔ -> sudoku-server ✔ -> sudoku-online-client

@@ -1,5 +1,7 @@
 # NFR Requirements（unit: shared-protocol）
 
+**【Round 5 复核】协议升 v2 后本单元 NFR 无实质变更**：消息类型总数 11 → 10（ClientMessage 3 + ServerMessage 7）；序列化/反序列化仍为浅字段纯函数；PBT 方向见 functional-design/testable-properties.md v2（NFR-10）。
+
 ## 性能
 | 项 | 要求 | 理由 |
 |---|---|---|

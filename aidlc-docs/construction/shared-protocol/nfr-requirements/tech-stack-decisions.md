@@ -13,5 +13,5 @@
 - 项目单一语言（TypeScript），无需多语言框架
 
 ## 不引入的技术（记录排除理由）
-- **ajv / zod 等 schema 库**：消息类型仅 11 种且字段浅，手写校验器更轻、零依赖，PBT 生成器直接复用域类型
+- **ajv / zod 等 schema 库**：消息类型仅 10 种（v2：Client 3 + Server 7）且字段浅，手写校验器更轻、零依赖，PBT 生成器直接复用域类型
 - **JSON Schema / Protobuf**：Q5=A 决策 JSON 文本协议，二进制与外部 schema 均不需要

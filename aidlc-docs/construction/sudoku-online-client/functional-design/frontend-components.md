@@ -1,76 +1,84 @@
-# Frontend Components（unit: sudoku-online-client）
+# Frontend Components（unit: sudoku-online-client）— Round 5 v2（竞速对抗模式）
 
-## 组件层级（联机模式 GameScene）
+## 组件层级（联机模式 GameScene，v2）
 
 ```
-MenuScene（改动）
-  └─ 模式选择 → GameScene（改动）
-        ├─ BoardView（改动：归属着色）
-        ├─ ControlBar（改动：capabilities 驱动禁用）
-        ├─ PlayerCountBadge（新增，FR-30）
-        ├─ JoinToast（新增，FR-19）
-        ├─ SpectatorOverlay（旁观覆盖层，复用 ResultOverlay 样式体系）
-        └─ DisconnectOverlay（断线覆盖层）
+MenuScene（无变更）
+  └─ 模式选择 → GameScene（修订）
+        ├─ BoardView（修订：笔记数据源=ownNotes 私有镜像；归属着色不变）
+        ├─ ControlBar（修订：移除"错误 x/3"计数显示）
+        ├─ PlayerCountBadge（无变更）
+        ├─ JoinToast（无变更）
+        ├─ ScoreBoard（新增 F8，FR-31）
+        ├─ GameOverOverlay（新增：终局结算层，取代 v1 胜利层与 SpectatorOverlay）
+        └─ DisconnectOverlay（无变更）
 ```
 
-## MenuScene（改动）
+## MenuScene（无变更）
 
-- **页面结构**：双页滑动导航（实施期修订）——page1 标题 + "继续上次游戏"（有存档时）+ "本地游戏"/"线上游戏"；点击模式后 page1 向左滑出、page2 从右侧滑入（tween ~280ms）。
-- **新增 state**：模式选择阶段（模式 → 难度 → 开局/连接），page2 含"选择难度"标题 + 四档难度按钮 + "返回"按钮（滑回 page1）+ 连接状态提示文本。
-- **交互流**：`线上游戏` → 滑至 page2 选难度 → `ws://<location.hostname>:8081` 连接 → 成功进 GameScene(online)；失败中文提示并停留 page2，可点"返回"。`本地游戏` → 滑至 page2 选难度 → 既有开局流程，**零变化**。
-- **data-testid**：`menu-mode-online`、`menu-mode-local`、`menu-difficulty-{easy|medium|hard|expert}`。
+- 双页滑动导航、模式/难度选择、连接失败中文提示、`data-testid` 约定均沿用（FR-15/16）。
 
-## GameScene（改动）
+## GameScene（修订）
 
-- **构造参数**：`{ mode: 'local' | 'online', difficulty: Difficulty }`。
-- **local**：完全走既有路径（SaveManager、提示/重开/新游戏、暂停计时），唯一差异是控制器类型为 IGameController 接口。
+- **构造参数**：`{ mode: 'local' | 'online', difficulty: Difficulty }`（不变）。
+- **local**：完全走既有路径，零变化（FR-40）。
 - **online**：
-  - 创建 WebSocketClient + OnlineGameController + PlayerCountBadge + JoinToast；不实例化 SaveManager。
-  - 订阅控制器转发的界面意图（经 EventBus/直接回调）：playerJoined→JoinToast('有玩家加入')；playerLeft→JoinToast('对方已离开')；playerLost(自己)→SpectatorOverlay + isReadOnly 阻断；playerLost(对方)→JoinToast('对方已旁观')；gameWon→胜利覆盖层（elapsedSeconds）；error→非阻塞提示条；ws close（非主动）→DisconnectOverlay + 阻断输入。
+  - 创建 WebSocketClient + OnlineGameController + PlayerCountBadge + JoinToast + **ScoreBoard**；不实例化 SaveManager。
+  - 界面意图订阅（v2 修订）：playerJoined→JoinToast('有玩家加入')；playerLeft（won 房间）→JoinToast('对方已离开')；**gameOver→GameOverOverlay**（双方分数、胜/负/平局、用时；reason='forfeit' 时文案区分"对方离开，你获胜/对方获胜"）；error→非阻塞提示条；ws close（非主动）→DisconnectOverlay + 阻断输入。**移除：playerLost/SpectatorOverlay 全部订阅与渲染**。
   - 返回主菜单：send leave → close() → scene 切换（BR-C-07）。
-- **data-testid**：`game-leave-button`、`game-spectator-overlay`、`game-disconnect-overlay`。
+- **data-testid**：`game-leave-button`、`game-disconnect-overlay`、~~`game-spectator-overlay`~~（移除）、**`game-over-overlay`**（新增）。
 
-## BoardView（改动，F7）
+## ScoreBoard（新增 F8，FR-31/BR-C-13）
 
-- **props/state**：BoardSnapshot 增加 `owners` 与 `you`（见 domain-entities）。
-- **渲染规则**：`value!==0 && !given` 时——`wrong` → 红（最高优先）；否则 `owner===you` → 蓝，`owner!==you` → 黑（实施期修订，原"自己黑/对方蓝"作废）；given 与空格笔记渲染不变。
-- **本地模式**：owners 全 null、you=null → 走既有着色分支（零变化，FR-29）。
-- **笔记加粗**（实施期变更）：选中格含数字 N 时，全盘笔记中所有 N 加粗显示；本地与联机模式同效（共用 BoardView.render）。
+- **位置**：棋盘上方或侧栏固定区（与 PlayerCountBadge 不重叠）；非交互（不监听 pointer 事件）。
+- **渲染**：两行文本——"自己: n 分" / "对方: m 分"；自己行可加重样式区分。
+- **state**：`scores: Record<PlayerId, number>` + `you`；`update(scores, you)` 由 GameScene 在 joined 与每条 opApplied（公共 scores 字段）后调用；gameOver 后定格最终分。
+- **data-testid**：`score-board`、`score-board-self`、`score-board-opponent`。
 
-## ControlBar（改动）
+## GameOverOverlay（新增，FR-36~39/BR-C-14）
 
-- **改动点**：按钮启用态改由 `controller.capabilities()` 驱动（本地全 true 与现况一致）；联机时提示/重开/新游戏禁用（置灰不可点）。
-- **错误计数显示**：联机显示自己的错误计数（"错误 x/3"），数据源为 MirrorState.myMistakes；本地不变。
-- **data-testid**：`control-hint-button`、`control-reset-button`、`control-newgame-button`（禁用态断言用）。
+- **触发**：控制器 gameOverData 非 null 且 status='won'。
+- **内容**：胜/负/平局标题（winnerId===you→"你赢了"；null→"平局"；否则"你输了"）+ 双方最终分数两行 + 用时（elapsedSeconds 格式化 mm:ss）+ reason='forfeit' 时副标题"对方已离开" + "返回主菜单"按钮。
+- **样式**：复用 ResultOverlay 样式体系（与本地结算层视觉一致）。
+- **data-testid**：`game-over-overlay`、`game-over-title`、`game-over-scores`、`game-over-time`、`game-over-back-button`。
 
-## PlayerCountBadge（新增，FR-30/BR-C-10）
+## BoardView（修订，F7）
 
-- **位置**：界面右上角（与 JoinToast 同区不同行，徽章在上）。
-- **渲染**：Phaser Text，"在线 n/2"；非交互（不监听 pointer 事件，不遮挡棋盘）。
-- **state**：`count: 1 | 2`；setCount 由 GameScene 在 joined/playerJoined/playerLeft 时调用。
-- **data-testid**：`player-count-badge`。
+- **归属着色规则不变**（BR-C-09：wrong 红 > given > 自己蓝 > 对方黑）。
+- **笔记渲染数据源变更**：BoardSnapshot.notes 来自控制器的 **ownNotes 私有镜像**投影（v1 为共享 CellEntry.notes）；渲染逻辑与笔记加粗（选中格数字 N 联动加粗）不变。
+- **本地模式**：数据源不变（GameState.getNotes()），零变化（FR-40）。
 
-## JoinToast（新增，FR-19/BR-C-11）
+## ControlBar（修订）
 
-- **行为**：`show(text)` 在徽章下方显示文本，~3 秒淡出销毁；多次触发时新 toast 替换旧 toast（单实例，不堆叠）。
-- **data-testid**：`join-toast`。
+- capabilities 驱动禁用不变（hint/reset/newGame 联机禁用）。
+- **移除**："错误 x/3"计数显示（myMistakes 已废，FR-37）；联机模式错误反馈仅靠错填红字与分数扣减。
+- **data-testid**：沿用。
 
-## 交互流时序（关键路径）
+## PlayerCountBadge / JoinToast（无变更）
+
+- 徽章"在线 n/2"；toast ~3 秒淡出单实例替换。playerLeft 仅 won 房间触发（v2 服务端语义），前端处理不变。
+
+## 交互流时序（关键路径，v2）
 
 ```
-自己填数：点击格 → selectCell → 数字键/按钮 → controller.inputDigit
-  → 发 fill op（界面不变）→ 服务端 opApplied(correct) → 镜像更新 + 重渲染 + VFX（completedUnits）
-  → 或 opApplied(wrong) → 镜像红字 + 错误计数 +1
-对方填数：服务端 opApplied → 镜像更新 + 重渲染（黑字）→ 无 VFX、无提示音
-补位：对方离开 → JoinToast('对方已离开') + 徽章 1/2 → 新玩家加入 → JoinToast('有玩家加入') + 徽章 2/2
+自己填数：点击格 → 数字 → controller.inputDigit → 发 fill op（界面不变）
+  → opApplied(correct)：镜像更新 + 蓝字 + VFX + ScoreBoard 自己 +100/+120
+  → opApplied(wrong)：镜像红字 + ScoreBoard 自己 -100（下限 0）
+对方填数：opApplied → 镜像更新（黑字/红字）+ ScoreBoard 对方分数变化 → 无 VFX
+笔记：noteMode 输入 → 发 note op → 仅自己收到 opApplied(notes) → ownNotes 更新渲染；对方无任何感知
+错填覆盖：对方 wrong 格 → 自己 fill 正确值 → opApplied(correct) → 该格转自己归属（蓝字）+ 自己得分
+终局（completed）：填满全对 → gameOver → GameOverOverlay（分高者胜/平局 + 双方分数 + 用时）
+终局（forfeit）：对方离开 → gameOver → GameOverOverlay（"对方已离开，你获胜"）
 ```
 
-## API 集成点（组件 → 服务端消息）
+## API 集成点（组件 → 服务端消息，v2）
 
 | 组件 | 发送 | 接收 |
 |---|---|---|
 | MenuScene | — | — |
-| GameScene（经 OnlineGameController） | join / leave | joined / playerJoined / playerLeft / playerLost / gameWon / error |
-| OnlineGameController | op(fill/erase/note/undo/redo) | opApplied / opRejected |
+| GameScene（经 OnlineGameController） | join / leave | joined / playerJoined / playerLeft / **gameOver** / error |
+| OnlineGameController | op(fill/erase/note/undo/redo) | opApplied（个性化副本）/ opRejected |
+| ScoreBoard | — | joined / opApplied.scores / gameOver.scores（经 GameScene 转发） |
 | PlayerCountBadge | — | joined / playerJoined / playerLeft（经 GameScene 转发） |
-| JoinToast | — | playerJoined / playerLeft / playerLost(对方) |
+| JoinToast | — | playerJoined / playerLeft |
+| GameOverOverlay | — | gameOver（经 GameOverData 缓存） |
