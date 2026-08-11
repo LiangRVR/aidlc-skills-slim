@@ -4,6 +4,7 @@ import type {
   ClientMessage,
   CompletedUnit,
   Op,
+  PlayerId,
   PlayerInfo,
   ProtocolMessage,
   ServerMessage,
@@ -25,28 +26,24 @@ export const arbCellEntry: fc.Arbitrary<CellEntry> = fc.oneof(
     given: fc.constant(true),
     owner: fc.constant(null),
     wrong: fc.constant(false),
-    notes: arbNotes,
   }),
   fc.record({
     value: fc.constant(0),
     given: fc.constant(false),
     owner: fc.constant(null),
     wrong: fc.constant(false),
-    notes: arbNotes,
   }),
   fc.record({
     value: arbValue,
     given: fc.constant(false),
     owner: arbPlayerId,
     wrong: fc.boolean(),
-    notes: arbNotes,
   })
 );
 
 export const arbPlayerInfo: fc.Arbitrary<PlayerInfo> = fc.record({
   id: arbPlayerId,
-  mistakes: fc.integer({ min: 0, max: 3 }),
-  spectating: fc.boolean(),
+  score: fc.integer({ min: 0, max: 100000 }),
 });
 
 export const arbSnapshot: fc.Arbitrary<Snapshot> = fc
@@ -58,15 +55,27 @@ export const arbSnapshot: fc.Arbitrary<Snapshot> = fc
     fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER }),
     fc.constantFrom('playing', 'won') as fc.Arbitrary<'playing' | 'won'>
   )
-  .map(([roomId, difficulty, cells, players, startedAt, status]) => ({
-    roomId,
-    difficulty,
-    cells,
-    players,
-    startedAt,
-    status,
-    you: players[0].id,
-  }));
+  .chain(([roomId, difficulty, cells, players, startedAt, status]) => {
+    const emptyIndexes = cells
+      .map((cell, index) => (cell.value === 0 ? String(index) : ''))
+      .filter((k) => k !== '');
+    return fc
+      .subarray(emptyIndexes)
+      .chain((keys) =>
+        fc
+          .record(Object.fromEntries(keys.map((k) => [k, arbNotes])))
+          .map((yourNotes) => ({
+            roomId,
+            difficulty,
+            cells,
+            players,
+            startedAt,
+            status,
+            you: players[0].id,
+            yourNotes,
+          }))
+      );
+  });
 
 export const arbCompletedUnit: fc.Arbitrary<CompletedUnit> = fc.record({
   type: fc.constantFrom('row', 'col', 'box') as fc.Arbitrary<'row' | 'col' | 'box'>,
@@ -87,25 +96,139 @@ export const arbClientMessage: fc.Arbitrary<ClientMessage> = fc.oneof(
   fc.constant({ type: 'leave' as const, payload: {} })
 );
 
+const arbScores: fc.Arbitrary<Record<PlayerId, number>> = fc
+  .array(arbPlayerId, { minLength: 1, maxLength: 2 })
+  .chain((ids) =>
+    fc
+      .record(Object.fromEntries(ids.map((id) => [id, fc.integer({ min: 0, max: 100000 })])))
+      .map((scores) => scores as Record<PlayerId, number>)
+  );
+
+const arbClearedNotes = fc.array(arbIndex, { maxLength: 20 });
+
+const arbOpAppliedNote: fc.Arbitrary<ServerMessage> = fc
+  .record({
+    playerId: arbPlayerId,
+    op: arbOp,
+    result: fc.constant('note' as const),
+    scores: arbScores,
+    notes: arbNotes,
+    clearedNotes: fc.option(arbClearedNotes, { nil: undefined }),
+  })
+  .map((p) => {
+    const payload: {
+      playerId: PlayerId;
+      op: Op;
+      result: 'note';
+      scores: Record<PlayerId, number>;
+      notes: number[];
+      clearedNotes?: number[];
+    } = { ...p };
+    if (payload.clearedNotes === undefined) delete payload.clearedNotes;
+    return { type: 'opApplied' as const, payload };
+  });
+
+const arbOpAppliedCorrect: fc.Arbitrary<ServerMessage> = fc
+  .record({
+    playerId: arbPlayerId,
+    op: arbOp,
+    result: fc.constant('correct' as const),
+    scores: arbScores,
+    cellIndex: arbIndex,
+    cell: arbCellEntry,
+    completedUnits: fc.array(arbCompletedUnit, { maxLength: 3 }),
+    clearedNotes: fc.option(arbClearedNotes, { nil: undefined }),
+  })
+  .map((p) => {
+    const payload: {
+      playerId: PlayerId;
+      op: Op;
+      result: 'correct';
+      scores: Record<PlayerId, number>;
+      cellIndex: number;
+      cell: CellEntry;
+      completedUnits: CompletedUnit[];
+      clearedNotes?: number[];
+    } = { ...p };
+    if (payload.clearedNotes === undefined) delete payload.clearedNotes;
+    return { type: 'opApplied' as const, payload };
+  });
+
+const arbOpAppliedCellResult: fc.Arbitrary<ServerMessage> = fc
+  .record({
+    playerId: arbPlayerId,
+    op: arbOp,
+    result: fc.constantFrom('wrong', 'erased', 'undone', 'redone') as fc.Arbitrary<
+      'wrong' | 'erased' | 'undone' | 'redone'
+    >,
+    scores: arbScores,
+    cellIndex: arbIndex,
+    cell: arbCellEntry,
+    clearedNotes: fc.option(arbClearedNotes, { nil: undefined }),
+  })
+  .map((p) => {
+    const payload: {
+      playerId: PlayerId;
+      op: Op;
+      result: 'wrong' | 'erased' | 'undone' | 'redone';
+      scores: Record<PlayerId, number>;
+      cellIndex: number;
+      cell: CellEntry;
+      clearedNotes?: number[];
+    } = { ...p };
+    if (payload.clearedNotes === undefined) delete payload.clearedNotes;
+    return { type: 'opApplied' as const, payload };
+  });
+
+export const arbOpApplied: fc.Arbitrary<ServerMessage> = fc.oneof(
+  arbOpAppliedNote,
+  arbOpAppliedCorrect,
+  arbOpAppliedCellResult
+);
+
+const arbGameOverCompletedWinner: fc.Arbitrary<ServerMessage> = fc
+  .record({
+    winnerId: arbPlayerId,
+    reason: fc.constant('completed' as const),
+    scores: arbScores,
+    elapsedSeconds: fc.integer({ min: 0, max: 100000 }),
+  })
+  .map((payload) => ({ type: 'gameOver' as const, payload }));
+
+const arbGameOverCompletedDraw: fc.Arbitrary<ServerMessage> = fc
+  .record({
+    winnerId: fc.constant(null),
+    reason: fc.constant('completed' as const),
+    scores: arbScores,
+    elapsedSeconds: fc.integer({ min: 0, max: 100000 }),
+  })
+  .map((payload) => ({ type: 'gameOver' as const, payload }));
+
+const arbGameOverForfeit: fc.Arbitrary<ServerMessage> = fc
+  .record({
+    winnerId: arbPlayerId,
+    reason: fc.constant('forfeit' as const),
+    scores: arbScores,
+    elapsedSeconds: fc.integer({ min: 0, max: 100000 }),
+  })
+  .map((payload) => ({ type: 'gameOver' as const, payload }));
+
+export const arbGameOver: fc.Arbitrary<ServerMessage> = fc.oneof(
+  arbGameOverCompletedWinner,
+  arbGameOverCompletedDraw,
+  arbGameOverForfeit
+);
+
 export const arbServerMessage: fc.Arbitrary<ServerMessage> = fc.oneof(
   arbSnapshot.map((snapshot) => ({ type: 'joined' as const, payload: snapshot })),
-  fc
-    .tuple(arbPlayerId, arbOp, fc.constantFrom('correct', 'wrong', 'note', 'erased', 'undone', 'redone'), arbIndex, arbCellEntry, fc.array(arbIndex, { maxLength: 20 }), fc.array(arbCompletedUnit, { maxLength: 3 }))
-    .map(([playerId, op, result, cellIndex, cell, clearedNotes, completedUnits]) => ({
-      type: 'opApplied' as const,
-      payload: { playerId, op, result: result as 'correct' | 'wrong' | 'note' | 'erased' | 'undone' | 'redone', cellIndex, cell, clearedNotes, completedUnits },
-    })),
+  arbOpApplied,
   fc.tuple(arbPlayerId, fc.string({ minLength: 1 })).map(([playerId, reason]) => ({
     type: 'opRejected' as const,
     payload: { playerId, reason },
   })),
   arbPlayerInfo.map((player) => ({ type: 'playerJoined' as const, payload: { player } })),
   arbPlayerId.map((playerId) => ({ type: 'playerLeft' as const, payload: { playerId } })),
-  arbPlayerId.map((playerId) => ({ type: 'playerLost' as const, payload: { playerId } })),
-  fc.integer({ min: 0, max: 100000 }).map((elapsedSeconds) => ({
-    type: 'gameWon' as const,
-    payload: { elapsedSeconds },
-  })),
+  arbGameOver,
   fc.string({ minLength: 1 }).map((message) => ({ type: 'error' as const, payload: { message } }))
 );
 
@@ -116,9 +239,12 @@ type Envelope = Record<string, unknown>;
 export type Mutator = (envelope: Envelope) => Envelope | null;
 
 const universalMutators: Mutator[] = [
-  (e) => ({ ...e, version: 2 }),
+  (e) => ({ ...e, version: 1 }),
   (e) => ({ ...e, version: '1' }),
+  (e) => ({ ...e, version: 3 }),
   (e) => ({ ...e, type: '__unknown__' }),
+  (e) => ({ ...e, type: 'playerLost' }),
+  (e) => ({ ...e, type: 'gameWon' }),
   (e) => ({ ...e, payload: null }),
   (e) => ({ ...e, payload: 42 }),
   (e) => {
@@ -166,18 +292,130 @@ const targetedMutators: Mutator[] = [
   },
   (e) => {
     const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'joined' || !p || typeof p !== 'object') return null;
+    const yourNotes = (p.yourNotes ?? {}) as Record<string, unknown>;
+    return { ...e, payload: { ...p, yourNotes: { ...yourNotes, '81': [1] } } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'joined' || !p || typeof p !== 'object') return null;
+    const cells = p.cells as { value: number }[];
+    const index = cells.findIndex((c) => c.value === 0);
+    if (index === -1) {
+      const yourNotes = (p.yourNotes ?? {}) as Record<string, unknown>;
+      return { ...e, payload: { ...p, yourNotes: { ...yourNotes, '81': [1] } } };
+    }
+    const yourNotes = (p.yourNotes ?? {}) as Record<string, unknown>;
+    return { ...e, payload: { ...p, yourNotes: { ...yourNotes, [index]: [1, 1] } } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'joined' || !p || typeof p !== 'object') return null;
+    const cells = p.cells as { value: number }[];
+    const index = cells.findIndex((c) => c.value !== 0);
+    if (index === -1) {
+      const yourNotes = (p.yourNotes ?? {}) as Record<string, unknown>;
+      return { ...e, payload: { ...p, yourNotes: { ...yourNotes, '81': [1] } } };
+    }
+    const yourNotes = (p.yourNotes ?? {}) as Record<string, unknown>;
+    return { ...e, payload: { ...p, yourNotes: { ...yourNotes, [index]: [1] } } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object') return null;
+    const cell = p.cell as Record<string, unknown> | undefined;
+    if (!cell || typeof cell !== 'object') return null;
+    return { ...e, payload: { ...p, cell: { ...cell, notes: [1] } } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
     if (e.type !== 'opApplied' || !p || typeof p !== 'object') return null;
     return { ...e, payload: { ...p, result: 'maybe' } };
   },
   (e) => {
     const p = e.payload as Record<string, unknown> | undefined;
-    if (e.type !== 'playerLost' || !p || typeof p !== 'object') return null;
-    return { ...e, payload: { ...p, playerId: '' } };
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object' || p.result !== 'note') return null;
+    return {
+      ...e,
+      payload: {
+        ...p,
+        cellIndex: 0,
+        cell: { value: 5, given: false, owner: 'x', wrong: false },
+      },
+    };
   },
   (e) => {
     const p = e.payload as Record<string, unknown> | undefined;
-    if (e.type !== 'gameWon' || !p || typeof p !== 'object') return null;
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object' || p.result !== 'note') return null;
+    const c = { ...p };
+    delete c.notes;
+    return { ...e, payload: c };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object' || p.result !== 'correct') return null;
+    const c = { ...p };
+    delete c.completedUnits;
+    return { ...e, payload: c };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object' || p.result !== 'correct') return null;
+    const c = { ...p };
+    delete c.cellIndex;
+    return { ...e, payload: c };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object') return null;
+    if (p.result !== 'wrong' && p.result !== 'erased' && p.result !== 'undone' && p.result !== 'redone') {
+      return null;
+    }
+    return { ...e, payload: { ...p, completedUnits: [] } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object') return null;
+    return { ...e, payload: { ...p, scores: {} } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object') return null;
+    const scores = p.scores as Record<string, unknown>;
+    const key = Object.keys(scores)[0];
+    return { ...e, payload: { ...p, scores: { ...scores, [key]: -1 } } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'opApplied' || !p || typeof p !== 'object') return null;
+    if (!('clearedNotes' in p)) return null;
+    return { ...e, payload: { ...p, clearedNotes: [81] } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'gameOver' || !p || typeof p !== 'object' || p.reason !== 'forfeit') return null;
+    return { ...e, payload: { ...p, winnerId: null } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'gameOver' || !p || typeof p !== 'object') return null;
+    if (p.winnerId === null) return null;
+    return { ...e, payload: { ...p, winnerId: '' } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'gameOver' || !p || typeof p !== 'object') return null;
+    return { ...e, payload: { ...p, reason: 'resigned' } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'gameOver' || !p || typeof p !== 'object') return null;
     return { ...e, payload: { ...p, elapsedSeconds: -1 } };
+  },
+  (e) => {
+    const p = e.payload as Record<string, unknown> | undefined;
+    if (e.type !== 'playerJoined' || !p || typeof p !== 'object') return null;
+    return { ...e, payload: { ...p, player: { id: 'p', score: -1 } } };
   },
 ];
 

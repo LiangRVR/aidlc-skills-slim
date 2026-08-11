@@ -29,6 +29,9 @@ export interface SendRecorder {
   clear: () => void;
 }
 
+export const opsOf = (msgs: ServerMessage[], type: string): ServerMessage[] =>
+  msgs.filter((m) => m.type === type);
+
 export function makeSendRecorder(): SendRecorder {
   const log: SentRecord[] = [];
   return {

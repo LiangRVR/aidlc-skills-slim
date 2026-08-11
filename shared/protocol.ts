@@ -1,6 +1,6 @@
 import type { Difficulty } from '../src/core/types';
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 export type PlayerId = string;
 export type RoomId = string;
@@ -17,13 +17,11 @@ export interface CellEntry {
   given: boolean;
   owner: PlayerId | null;
   wrong: boolean;
-  notes: number[];
 }
 
 export interface PlayerInfo {
   id: PlayerId;
-  mistakes: number;
-  spectating: boolean;
+  score: number;
 }
 
 export interface CompletedUnit {
@@ -36,6 +34,7 @@ export interface Snapshot {
   difficulty: Difficulty;
   cells: CellEntry[];
   players: PlayerInfo[];
+  yourNotes: Record<number, number[]>;
   startedAt: number;
   status: 'playing' | 'won';
   you: PlayerId;
@@ -52,21 +51,47 @@ export type ServerMessage =
   | { type: 'joined'; payload: Snapshot }
   | {
       type: 'opApplied';
-      payload: {
-        playerId: PlayerId;
-        op: Op;
-        result: OpResult;
-        cellIndex: number;
-        cell: CellEntry;
-        clearedNotes: number[];
-        completedUnits: CompletedUnit[];
-      };
+      payload:
+        | {
+            playerId: PlayerId;
+            op: Op;
+            result: 'note';
+            scores: Record<PlayerId, number>;
+            notes: number[];
+            clearedNotes?: number[];
+          }
+        | {
+            playerId: PlayerId;
+            op: Op;
+            result: 'correct';
+            cellIndex: number;
+            cell: CellEntry;
+            completedUnits: CompletedUnit[];
+            scores: Record<PlayerId, number>;
+            clearedNotes?: number[];
+          }
+        | {
+            playerId: PlayerId;
+            op: Op;
+            result: 'wrong' | 'erased' | 'undone' | 'redone';
+            cellIndex: number;
+            cell: CellEntry;
+            scores: Record<PlayerId, number>;
+            clearedNotes?: number[];
+          };
     }
   | { type: 'opRejected'; payload: { playerId: PlayerId; reason: string } }
   | { type: 'playerJoined'; payload: { player: PlayerInfo } }
   | { type: 'playerLeft'; payload: { playerId: PlayerId } }
-  | { type: 'playerLost'; payload: { playerId: PlayerId } }
-  | { type: 'gameWon'; payload: { elapsedSeconds: number } }
+  | {
+      type: 'gameOver';
+      payload: {
+        winnerId: PlayerId | null;
+        reason: 'completed' | 'forfeit';
+        scores: Record<PlayerId, number>;
+        elapsedSeconds: number;
+      };
+    }
   | { type: 'error'; payload: { message: string } };
 
 export type ProtocolMessage = ClientMessage | ServerMessage;
@@ -75,6 +100,10 @@ type Raw = Record<string, unknown>;
 
 function isObj(v: unknown): v is Raw {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+function hasKey(v: Raw, k: string): boolean {
+  return Object.prototype.hasOwnProperty.call(v, k);
 }
 
 function isInt(v: unknown, min: number, max: number): v is number {
@@ -124,11 +153,13 @@ function isOp(v: unknown): v is Op {
 
 function isCellEntry(v: unknown): v is CellEntry {
   if (!isObj(v)) return false;
-  if (!isInt(v.value, 0, 9)) return false;
-  if (typeof v.given !== 'boolean') return false;
-  if (!(v.owner === null || isNonEmptyString(v.owner))) return false;
-  if (typeof v.wrong !== 'boolean') return false;
-  if (!isNotes(v.notes)) return false;
+  if (!hasKey(v, 'value') || !isInt(v.value, 0, 9)) return false;
+  if (!hasKey(v, 'given') || typeof v.given !== 'boolean') return false;
+  if (!hasKey(v, 'owner') || !(v.owner === null || isNonEmptyString(v.owner))) return false;
+  if (!hasKey(v, 'wrong') || typeof v.wrong !== 'boolean') return false;
+  if (Object.keys(v).some((k) => k !== 'value' && k !== 'given' && k !== 'owner' && k !== 'wrong')) {
+    return false;
+  }
   if (v.given && (v.owner !== null || v.value === 0)) return false;
   if (v.value === 0 && v.wrong) return false;
   if (v.value !== 0 && !v.given && v.owner === null) return false;
@@ -136,12 +167,7 @@ function isCellEntry(v: unknown): v is CellEntry {
 }
 
 function isPlayerInfo(v: unknown): v is PlayerInfo {
-  return (
-    isObj(v) &&
-    isNonEmptyString(v.id) &&
-    isInt(v.mistakes, 0, 3) &&
-    typeof v.spectating === 'boolean'
-  );
+  return isObj(v) && isNonEmptyString(v.id) && isInt(v.score, 0, Number.MAX_SAFE_INTEGER);
 }
 
 function isCompletedUnit(v: unknown): v is CompletedUnit {
@@ -152,6 +178,25 @@ function isCompletedUnit(v: unknown): v is CompletedUnit {
   );
 }
 
+function isScores(v: unknown): v is Record<string, number> {
+  if (!isObj(v)) return false;
+  const keys = Object.keys(v);
+  if (keys.length < 1 || keys.length > 2) return false;
+  return keys.every((k) => isNonEmptyString(k) && isInt(v[k], 0, Number.MAX_SAFE_INTEGER));
+}
+
+function isYourNotes(v: unknown, cells: CellEntry[]): v is Record<number, number[]> {
+  if (!isObj(v)) return false;
+  for (const k of Object.keys(v)) {
+    const n = Number(k);
+    if (!isInt(n, 0, 80)) return false;
+    if (String(n) !== k) return false;
+    if (cells[n].value !== 0) return false;
+    if (!isNotes(v[k])) return false;
+  }
+  return true;
+}
+
 function isSnapshot(v: unknown): v is Snapshot {
   if (!isObj(v)) return false;
   if (!isNonEmptyString(v.roomId)) return false;
@@ -159,7 +204,8 @@ function isSnapshot(v: unknown): v is Snapshot {
   if (!Array.isArray(v.cells) || v.cells.length !== 81 || !v.cells.every(isCellEntry)) return false;
   if (!Array.isArray(v.players) || v.players.length < 1 || v.players.length > 2) return false;
   if (!v.players.every(isPlayerInfo)) return false;
-  if (typeof v.startedAt !== 'number' || v.startedAt < 0) return false;
+  if (!isYourNotes(v.yourNotes, v.cells)) return false;
+  if (!isInt(v.startedAt, 0, Number.MAX_SAFE_INTEGER)) return false;
   if (v.status !== 'playing' && v.status !== 'won') return false;
   if (!isNonEmptyString(v.you)) return false;
   if (!v.players.some((p) => p.id === v.you)) return false;
@@ -177,6 +223,58 @@ function isOpResult(v: unknown): v is OpResult {
   );
 }
 
+function isOpAppliedPayload(p: unknown): boolean {
+  if (!isObj(p)) return false;
+  if (!isNonEmptyString(p.playerId)) return false;
+  if (!isOp(p.op)) return false;
+  if (!isOpResult(p.result)) return false;
+  if (!isScores(p.scores)) return false;
+  if (hasKey(p, 'clearedNotes') && !isIndexArray(p.clearedNotes)) return false;
+  switch (p.result) {
+    case 'note':
+      return (
+        hasKey(p, 'notes') &&
+        isNotes(p.notes) &&
+        !hasKey(p, 'cellIndex') &&
+        !hasKey(p, 'cell') &&
+        !hasKey(p, 'completedUnits')
+      );
+    case 'correct':
+      return (
+        hasKey(p, 'cellIndex') &&
+        isIndex(p.cellIndex) &&
+        hasKey(p, 'cell') &&
+        isCellEntry(p.cell) &&
+        hasKey(p, 'completedUnits') &&
+        Array.isArray(p.completedUnits) &&
+        p.completedUnits.every(isCompletedUnit)
+      );
+    case 'wrong':
+    case 'erased':
+    case 'undone':
+    case 'redone':
+      return (
+        hasKey(p, 'cellIndex') &&
+        isIndex(p.cellIndex) &&
+        hasKey(p, 'cell') &&
+        isCellEntry(p.cell) &&
+        !hasKey(p, 'completedUnits')
+      );
+    default:
+      return false;
+  }
+}
+
+function isGameOverPayload(p: unknown): boolean {
+  if (!isObj(p)) return false;
+  if (!(p.winnerId === null || isNonEmptyString(p.winnerId))) return false;
+  if (p.reason !== 'completed' && p.reason !== 'forfeit') return false;
+  if (!isScores(p.scores)) return false;
+  if (!isInt(p.elapsedSeconds, 0, Number.MAX_SAFE_INTEGER)) return false;
+  if (p.reason === 'forfeit' && p.winnerId === null) return false;
+  return true;
+}
+
 function validPayload(type: string, p: unknown): boolean {
   switch (type) {
     case 'join':
@@ -188,26 +286,15 @@ function validPayload(type: string, p: unknown): boolean {
     case 'joined':
       return isSnapshot(p);
     case 'opApplied':
-      return (
-        isObj(p) &&
-        isNonEmptyString(p.playerId) &&
-        isOp(p.op) &&
-        isOpResult(p.result) &&
-        isInt(p.cellIndex, 0, 80) &&
-        isCellEntry(p.cell) &&
-        isIndexArray(p.clearedNotes) &&
-        Array.isArray(p.completedUnits) &&
-        p.completedUnits.every(isCompletedUnit)
-      );
+      return isOpAppliedPayload(p);
     case 'opRejected':
       return isObj(p) && isNonEmptyString(p.playerId) && isNonEmptyString(p.reason);
     case 'playerJoined':
       return isObj(p) && isPlayerInfo(p.player);
     case 'playerLeft':
-    case 'playerLost':
       return isObj(p) && isNonEmptyString(p.playerId);
-    case 'gameWon':
-      return isObj(p) && typeof p.elapsedSeconds === 'number' && p.elapsedSeconds >= 0;
+    case 'gameOver':
+      return isGameOverPayload(p);
     case 'error':
       return isObj(p) && isNonEmptyString(p.message);
     default:

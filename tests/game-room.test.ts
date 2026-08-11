@@ -3,14 +3,25 @@ import { ConnectionManager } from '../server/connection-manager';
 import { MessageRouter } from '../server/message-router';
 import { RoomManager } from '../server/room-manager';
 import type { ServerMessage } from '../shared/protocol';
-import { emptyIndices, makeRoom, makeSendRecorder, SOLUTION, wrongValue } from './server-generators';
+import {
+  emptyIndices,
+  makeRoom,
+  makeSendRecorder,
+  opsOf,
+  SOLUTION,
+  wrongValue,
+  type SendRecorder,
+} from './server-generators';
 
 const empties = emptyIndices();
 
-const opsOf = (msgs: ServerMessage[], type: string) => msgs.filter((m) => m.type === type);
+const lastApplied = (recorder: SendRecorder, id: string): ServerMessage => {
+  const a = opsOf(recorder.messagesFor(id), 'opApplied');
+  return a[a.length - 1];
+};
 
-describe('GameRoom example-based scenarios', () => {
-  it('1. 单人完整对局：按 solution 填满 → 全 correct，末步后 gameWon，status=won', () => {
+describe('GameRoom v2 example-based scenarios', () => {
+  it('1. 单人完局：按 solution 填满 → 全 correct、gameOver(completed, winner=自己)、status=won', () => {
     const { room, recorder } = makeRoom(['A']);
     for (const i of empties) {
       room.handleOp('A', { kind: 'fill', index: i, value: SOLUTION[i] });
@@ -20,13 +31,17 @@ describe('GameRoom example-based scenarios', () => {
     for (const m of applied) {
       expect(m.type === 'opApplied' && m.payload.result).toBe('correct');
     }
-    const won = opsOf(recorder.messagesFor('A'), 'gameWon');
-    expect(won).toHaveLength(1);
-    expect(won[0].type === 'gameWon' && won[0].payload.elapsedSeconds).toBeGreaterThanOrEqual(0);
+    const over = opsOf(recorder.messagesFor('A'), 'gameOver');
+    expect(over).toHaveLength(1);
+    if (over[0].type !== 'gameOver') return;
+    expect(over[0].payload.reason).toBe('completed');
+    expect(over[0].payload.winnerId).toBe('A');
+    expect(over[0].payload.scores['A']).toBeGreaterThan(0);
+    expect(over[0].payload.elapsedSeconds).toBeGreaterThanOrEqual(0);
     expect(room.getStatus()).toBe('won');
   });
 
-  it('2. 双人协作：双方互收 opApplied；gameWon 每人恰好一条', () => {
+  it('2. 双人竞速：交错填对，双方互收公共 opApplied；scores 随填入更新；分高者胜', () => {
     const { room, recorder } = makeRoom(['A', 'B']);
     empties.forEach((i, k) => {
       room.handleOp(k % 2 === 0 ? 'A' : 'B', { kind: 'fill', index: i, value: SOLUTION[i] });
@@ -35,79 +50,222 @@ describe('GameRoom example-based scenarios', () => {
     const bMsgs = recorder.messagesFor('B');
     expect(opsOf(aMsgs, 'opApplied').some((m) => m.type === 'opApplied' && m.payload.playerId === 'B')).toBe(true);
     expect(opsOf(bMsgs, 'opApplied').some((m) => m.type === 'opApplied' && m.payload.playerId === 'A')).toBe(true);
-    expect(opsOf(aMsgs, 'gameWon')).toHaveLength(1);
-    expect(opsOf(bMsgs, 'gameWon')).toHaveLength(1);
+    const aOver = opsOf(aMsgs, 'gameOver');
+    const bOver = opsOf(bMsgs, 'gameOver');
+    expect(aOver).toHaveLength(1);
+    expect(bOver).toHaveLength(1);
+    if (aOver[0].type !== 'gameOver' || bOver[0].type !== 'gameOver') return;
+    expect(aOver[0].payload.reason).toBe('completed');
+    expect(bOver[0].payload).toEqual(aOver[0].payload);
+    expect(aOver[0].payload.scores['A']).toBe(3080);
+    expect(aOver[0].payload.scores['B']).toBe(2960);
+    expect(aOver[0].payload.winnerId).toBe('A');
+    for (const m of [...opsOf(aMsgs, 'opApplied'), ...opsOf(bMsgs, 'opApplied')]) {
+      if (m.type !== 'opApplied') continue;
+      for (const s of Object.values(m.payload.scores)) {
+        expect(s).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
 
-  it('3. 3 错旁观：A 错满转旁观，后续 op 拒 spectating 且无副作用；B 可完成获胜', () => {
+  it('3. 平分判和：双方同分 → gameOver.winnerId=null', () => {
     const { room, recorder } = makeRoom(['A', 'B']);
-    for (let k = 0; k < 3; k++) {
-      room.handleOp('A', { kind: 'fill', index: empties[k], value: wrongValue(empties[k]) });
+    for (let k = 0; k < 25; k++) {
+      room.handleOp('A', { kind: 'fill', index: empties[k], value: SOLUTION[empties[k]] });
     }
-    expect(opsOf(recorder.messagesFor('A'), 'playerLost')).toHaveLength(1);
-    expect(opsOf(recorder.messagesFor('B'), 'playerLost')).toHaveLength(1);
-    const cellsBefore = room.getCells();
+    room.handleOp('B', { kind: 'fill', index: empties[25], value: SOLUTION[empties[25]] });
+    room.handleOp('B', { kind: 'fill', index: empties[26], value: wrongValue(empties[26]) });
+    for (let k = 27; k < 51; k++) {
+      room.handleOp('B', { kind: 'fill', index: empties[k], value: SOLUTION[empties[k]] });
+    }
+    room.handleOp('B', { kind: 'fill', index: empties[26], value: SOLUTION[empties[26]] });
+    const over = opsOf(recorder.messagesFor('A'), 'gameOver');
+    expect(over).toHaveLength(1);
+    if (over[0].type !== 'gameOver') return;
+    expect(over[0].payload.reason).toBe('completed');
+    expect(over[0].payload.winnerId).toBeNull();
+    expect(over[0].payload.scores['A']).toBe(over[0].payload.scores['B']);
+  });
+
+  it('4. 连击不被打断：A 连对 2 次、B 填对、A 第 3 对 → delta=120（score=320）', () => {
+    const { room, recorder } = makeRoom(['A', 'B']);
+    room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });
+    room.handleOp('A', { kind: 'fill', index: empties[1], value: SOLUTION[empties[1]] });
+    room.handleOp('B', { kind: 'fill', index: empties[2], value: SOLUTION[empties[2]] });
     recorder.clear();
     room.handleOp('A', { kind: 'fill', index: empties[3], value: SOLUTION[empties[3]] });
-    const aMsgs = recorder.messagesFor('A');
-    expect(opsOf(aMsgs, 'opRejected')).toHaveLength(1);
-    expect(aMsgs[0].type === 'opRejected' && aMsgs[0].payload.reason).toBe('spectating');
-    expect(room.getCells()).toEqual(cellsBefore);
-    recorder.clear();
-    for (const i of empties) {
-      room.handleOp('B', { kind: 'fill', index: i, value: SOLUTION[i] });
-    }
-    expect(opsOf(recorder.messagesFor('B'), 'gameWon')).toHaveLength(1);
+    const applied = lastApplied(recorder, 'A');
+    expect(applied.type === 'opApplied' && applied.payload.result).toBe('correct');
+    if (applied.type !== 'opApplied') return;
+    expect(applied.payload.scores['A']).toBe(320);
+    expect(applied.payload.scores['B']).toBe(100);
   });
 
-  it('4. 错填互擦：B 擦除 A 的错填格', () => {
+  it('5. 扣分下限：score=100 填错 → 0；score=0 再填错 → 仍 0', () => {
+    const { room, recorder } = makeRoom(['A']);
+    room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });
+    recorder.clear();
+    room.handleOp('A', { kind: 'fill', index: empties[1], value: wrongValue(empties[1]) });
+    let applied = lastApplied(recorder, 'A');
+    if (applied.type !== 'opApplied') return;
+    expect(applied.payload.result).toBe('wrong');
+    expect(applied.payload.scores['A']).toBe(0);
+    recorder.clear();
+    room.handleOp('A', { kind: 'fill', index: empties[2], value: wrongValue(empties[2]) });
+    applied = lastApplied(recorder, 'A');
+    if (applied.type !== 'opApplied') return;
+    expect(applied.payload.scores['A']).toBe(0);
+  });
+
+  it('6. 错填覆盖转移：B fill 覆盖 A 的 wrong 格 → result=correct、owner=B、B 得分', () => {
     const { room, recorder } = makeRoom(['A', 'B']);
     const target = empties[0];
     room.handleOp('A', { kind: 'fill', index: target, value: wrongValue(target) });
-    room.handleOp('B', { kind: 'erase', index: target });
-    const bMsgs = opsOf(recorder.messagesFor('B'), 'opApplied');
-    const last = bMsgs[bMsgs.length - 1];
-    expect(last.type === 'opApplied' && last.payload.result).toBe('erased');
-    const cell = room.getCells()[target];
-    expect(cell).toMatchObject({ value: 0, owner: null, wrong: false });
+    recorder.clear();
+    room.handleOp('B', { kind: 'fill', index: target, value: SOLUTION[target] });
+    const applied = lastApplied(recorder, 'B');
+    expect(applied.type === 'opApplied' && applied.payload.result).toBe('correct');
+    if (applied.type !== 'opApplied') return;
+    expect(applied.payload.cell.owner).toBe('B');
+    expect(applied.payload.scores['B']).toBe(100);
+    expect(room.getCells()[target]).toMatchObject({ value: SOLUTION[target], owner: 'B', wrong: false });
   });
 
-  it('5. 擦对方正确格 → not-erasable，棋盘不变', () => {
+  it('7. 擦对方格（正确/错填）→ not-erasable，棋盘不变', () => {
     const { room, recorder } = makeRoom(['A', 'B']);
     const target = empties[0];
     room.handleOp('A', { kind: 'fill', index: target, value: SOLUTION[target] });
+    room.handleOp('A', { kind: 'fill', index: empties[1], value: wrongValue(empties[1]) });
     const cellsBefore = room.getCells();
     recorder.clear();
     room.handleOp('B', { kind: 'erase', index: target });
+    room.handleOp('B', { kind: 'erase', index: empties[1] });
     const bMsgs = recorder.messagesFor('B');
-    expect(bMsgs).toHaveLength(1);
-    expect(bMsgs[0].type === 'opRejected' && bMsgs[0].payload.reason).toBe('not-erasable');
+    expect(bMsgs).toHaveLength(2);
+    for (const m of bMsgs) {
+      expect(m.type === 'opRejected' && m.payload.reason).toBe('not-erasable');
+    }
     expect(room.getCells()).toEqual(cellsBefore);
   });
 
-  it('6. 补位：B 离开后 C 加入，继承棋盘（含 B 的格子），C 计数清零', () => {
+  it('8. 覆盖对方正确格 → not-overwritable', () => {
     const { room, recorder } = makeRoom(['A', 'B']);
-    room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });
-    room.handleOp('B', { kind: 'fill', index: empties[1], value: SOLUTION[empties[1]] });
-    room.handleOp('B', { kind: 'fill', index: empties[2], value: wrongValue(empties[2]) });
-    room.removePlayer('B');
+    const target = empties[0];
+    room.handleOp('A', { kind: 'fill', index: target, value: SOLUTION[target] });
     recorder.clear();
-    room.addPlayer('C');
-    const cMsgs = recorder.messagesFor('C');
-    expect(cMsgs).toHaveLength(1);
-    expect(cMsgs[0].type).toBe('joined');
-    if (cMsgs[0].type !== 'joined') return;
-    const snap = cMsgs[0].payload;
-    expect(snap.you).toBe('C');
-    expect(snap.cells[empties[0]].owner).toBe('A');
-    expect(snap.cells[empties[1]].owner).toBe('B');
-    expect(snap.cells[empties[2]].wrong).toBe(true);
-    const cInfo = snap.players.find((p) => p.id === 'C');
-    expect(cInfo).toMatchObject({ mistakes: 0, spectating: false });
-    expect(snap.players.find((p) => p.id === 'B')).toBeUndefined();
+    room.handleOp('B', { kind: 'fill', index: target, value: wrongValue(target) });
+    const bMsgs = recorder.messagesFor('B');
+    expect(bMsgs).toHaveLength(1);
+    expect(bMsgs[0].type === 'opRejected' && bMsgs[0].payload.reason).toBe('not-overwritable');
+    expect(room.getCells()[target]).toMatchObject({ value: SOLUTION[target], owner: 'A', wrong: false });
   });
 
-  it('7. 空房回收：唯一玩家离开后 reclaimIfEmpty，房间不再可匹配', () => {
+  it('9. 笔记私有：A note 仅 A 收到；B 收 0 条；B 的 snapshotFor 无该笔记', () => {
+    const { room, recorder } = makeRoom(['A', 'B']);
+    const target = empties[0];
+    recorder.clear();
+    room.handleOp('A', { kind: 'note', index: target, value: 5 });
+    const aMsgs = recorder.messagesFor('A');
+    const bMsgs = recorder.messagesFor('B');
+    expect(aMsgs).toHaveLength(1);
+    expect(aMsgs[0].type === 'opApplied' && aMsgs[0].payload.result).toBe('note');
+    if (aMsgs[0].type === 'opApplied') expect(aMsgs[0].payload.notes).toEqual([5]);
+    expect(bMsgs).toHaveLength(0);
+    expect(room.snapshotFor('B').yourNotes[target]).toBeUndefined();
+    expect(room.snapshotFor('A').yourNotes[target]).toEqual([5]);
+  });
+
+  it('10. 笔记代清双方：A 填对后 A、B 各自副本 clearedNotes 均含同行笔记格', () => {
+    const { room, recorder } = makeRoom(['A', 'B']);
+    const target = empties[0];
+    const v = SOLUTION[target];
+    const row = Math.floor(target / 9);
+    const peer = empties.find((i) => Math.floor(i / 9) === row && i !== target) as number;
+    room.handleOp('A', { kind: 'note', index: peer, value: v });
+    room.handleOp('B', { kind: 'note', index: peer, value: v });
+    recorder.clear();
+    room.handleOp('A', { kind: 'fill', index: target, value: v });
+    const aApplied = opsOf(recorder.messagesFor('A'), 'opApplied');
+    const bApplied = opsOf(recorder.messagesFor('B'), 'opApplied');
+    expect(aApplied).toHaveLength(1);
+    expect(bApplied).toHaveLength(1);
+    if (aApplied[0].type !== 'opApplied' || bApplied[0].type !== 'opApplied') return;
+    expect(aApplied[0].payload.result).toBe('correct');
+    expect(aApplied[0].payload.clearedNotes).toContain(peer);
+    expect(bApplied[0].payload.clearedNotes).toContain(peer);
+    expect(bApplied[0].payload.playerId).toBe('A');
+    expect(room.snapshotFor('A').yourNotes[peer]).toBeUndefined();
+    expect(room.snapshotFor('B').yourNotes[peer]).toBeUndefined();
+  });
+
+  it('11. undo 错填不返还：score 不变、格子恢复为空', () => {
+    const { room, recorder } = makeRoom(['A']);
+    room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });
+    room.handleOp('A', { kind: 'fill', index: empties[1], value: SOLUTION[empties[1]] });
+    room.handleOp('A', { kind: 'fill', index: empties[2], value: wrongValue(empties[2]) });
+    recorder.clear();
+    room.handleOp('A', { kind: 'undo' });
+    const applied = lastApplied(recorder, 'A');
+    if (applied.type !== 'opApplied') return;
+    expect(applied.payload.result).toBe('undone');
+    expect(applied.payload.scores['A']).toBe(100);
+    expect(room.getCells()[empties[2]]).toMatchObject({ value: 0, owner: null, wrong: false });
+  });
+
+  it('12. undo 正确返还 + redo 恢复', () => {
+    const { room, recorder } = makeRoom(['A']);
+    room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });
+    recorder.clear();
+    room.handleOp('A', { kind: 'undo' });
+    let applied = lastApplied(recorder, 'A');
+    if (applied.type !== 'opApplied') return;
+    expect(applied.payload.result).toBe('undone');
+    expect(applied.payload.scores['A']).toBe(0);
+    expect(room.getCells()[empties[0]]).toMatchObject({ value: 0, owner: null });
+    recorder.clear();
+    room.handleOp('A', { kind: 'redo' });
+    applied = lastApplied(recorder, 'A');
+    if (applied.type !== 'opApplied') return;
+    expect(applied.payload.result).toBe('redone');
+    expect(applied.payload.scores['A']).toBe(100);
+    expect(room.getCells()[empties[0]]).toMatchObject({ value: SOLUTION[empties[0]], owner: 'A', wrong: false });
+  });
+
+  it('13. 离开判胜：双人 playing B leave → A 收 gameOver(forfeit, winner=A)，无 playerLeft', () => {
+    const { room, recorder } = makeRoom(['A', 'B']);
+    room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });
+    recorder.clear();
+    room.removePlayer('B');
+    const aMsgs = recorder.messagesFor('A');
+    const over = opsOf(aMsgs, 'gameOver');
+    expect(over).toHaveLength(1);
+    if (over[0].type !== 'gameOver') return;
+    expect(over[0].payload.reason).toBe('forfeit');
+    expect(over[0].payload.winnerId).toBe('A');
+    expect(recorder.log.some((r) => r.msg.type === 'playerLeft')).toBe(false);
+    expect(room.getStatus()).toBe('won');
+    expect(room.getPlayerCount()).toBe(1);
+  });
+
+  it('14. won 后一切 op → opRejected(game-over)', () => {
+    const { room, recorder } = makeRoom(['A']);
+    for (const i of empties) {
+      room.handleOp('A', { kind: 'fill', index: i, value: SOLUTION[i] });
+    }
+    recorder.clear();
+    room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });
+    room.handleOp('A', { kind: 'erase', index: empties[0] });
+    room.handleOp('A', { kind: 'note', index: empties[0], value: 1 });
+    room.handleOp('A', { kind: 'undo' });
+    room.handleOp('A', { kind: 'redo' });
+    const msgs = recorder.messagesFor('A');
+    expect(msgs).toHaveLength(5);
+    for (const m of msgs) {
+      expect(m.type === 'opRejected' && m.payload.reason).toBe('game-over');
+    }
+  });
+
+  it('15. 单人房离开回收：唯一玩家 leave → 房间销毁、不可再匹配', () => {
     const recorder = makeSendRecorder();
     const manager = new RoomManager(recorder.send);
     const room = manager.createRoom('easy', 'room-x');
@@ -120,24 +278,24 @@ describe('GameRoom example-based scenarios', () => {
     expect(manager.listRooms()).toHaveLength(0);
   }, 15000);
 
-  it('8. won 后一切 op → game-over', () => {
+  it('16. undo/redo 空栈 → 拒绝', () => {
     const { room, recorder } = makeRoom(['A']);
-    for (const i of empties) {
-      room.handleOp('A', { kind: 'fill', index: i, value: SOLUTION[i] });
-    }
-    recorder.clear();
-    room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });
-    room.handleOp('A', { kind: 'erase', index: empties[0] });
-    room.handleOp('A', { kind: 'note', index: empties[0], value: 1 });
     room.handleOp('A', { kind: 'undo' });
+    room.handleOp('A', { kind: 'redo' });
     const msgs = recorder.messagesFor('A');
-    expect(msgs).toHaveLength(4);
-    for (const m of msgs) {
-      expect(m.type === 'opRejected' && m.payload.reason).toBe('game-over');
-    }
+    expect(msgs[0].type === 'opRejected' && msgs[0].payload.reason).toBe('nothing-to-undo');
+    expect(msgs[1].type === 'opRejected' && msgs[1].payload.reason).toBe('nothing-to-redo');
   });
 
-  it('9. 非法帧 → error 回复，连接保持', () => {
+  it('17. fill 预填格 → given-cell', () => {
+    const { room, recorder } = makeRoom(['A']);
+    room.handleOp('A', { kind: 'fill', index: 0, value: 5 });
+    const msgs = recorder.messagesFor('A');
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].type === 'opRejected' && msgs[0].payload.reason).toBe('given-cell');
+  });
+
+  it('18. 非法帧 → error 回复，连接保持', () => {
     const sent: ServerMessage[] = [];
     const roomSend = makeSendRecorder();
     const manager = new RoomManager(roomSend.send);
@@ -151,42 +309,5 @@ describe('GameRoom example-based scenarios', () => {
       expect(m.type === 'error' && m.payload.message).toBe('消息格式非法或版本不兼容');
     }
     expect(connections.isConnected('p1')).toBe(true);
-  });
-
-  it('10. undo/redo 空栈 → 拒绝', () => {
-    const { room, recorder } = makeRoom(['A']);
-    room.handleOp('A', { kind: 'undo' });
-    room.handleOp('A', { kind: 'redo' });
-    const msgs = recorder.messagesFor('A');
-    expect(msgs[0].type === 'opRejected' && msgs[0].payload.reason).toBe('nothing-to-undo');
-    expect(msgs[1].type === 'opRejected' && msgs[1].payload.reason).toBe('nothing-to-redo');
-  });
-
-  it('11. fill 预填格 → given-cell', () => {
-    const { room, recorder } = makeRoom(['A']);
-    room.handleOp('A', { kind: 'fill', index: 0, value: 5 });
-    const msgs = recorder.messagesFor('A');
-    expect(msgs).toHaveLength(1);
-    expect(msgs[0].type === 'opRejected' && msgs[0].payload.reason).toBe('given-cell');
-  });
-
-  it('12. 笔记联动清除（双人）：A 填对后 B 的同单元笔记被清除并广播', () => {
-    const { room, recorder } = makeRoom(['A', 'B']);
-    const target = empties[0];
-    const row = Math.floor(target / 9);
-    const peer = empties.find((i) => Math.floor(i / 9) === row && i !== target) as number;
-    const v = SOLUTION[target];
-    room.handleOp('B', { kind: 'note', index: peer, value: v });
-    recorder.clear();
-    room.handleOp('A', { kind: 'fill', index: target, value: v });
-    const aMsgs = opsOf(recorder.messagesFor('A'), 'opApplied');
-    expect(aMsgs).toHaveLength(1);
-    const applied = aMsgs[0];
-    expect(applied.type === 'opApplied' && applied.payload.result).toBe('correct');
-    if (applied.type !== 'opApplied') return;
-    expect(applied.payload.clearedNotes).toContain(peer);
-    expect(room.getCells()[peer].notes).not.toContain(v);
-    const bMsgs = opsOf(recorder.messagesFor('B'), 'opApplied');
-    expect(bMsgs).toHaveLength(1);
   });
 });

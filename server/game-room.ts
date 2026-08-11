@@ -1,6 +1,23 @@
 import type { Puzzle, Difficulty } from '../src/core/types';
 import { RuleValidator } from '../src/core/rule-validator';
-import type { CellEntry, Op, PlayerId, RoomId, ServerMessage, Snapshot } from '../shared/protocol';
+import type {
+  CellEntry,
+  CompletedUnit,
+  Op,
+  PlayerId,
+  PlayerInfo,
+  RoomId,
+  ServerMessage,
+  Snapshot,
+} from '../shared/protocol';
+import {
+  applyErase,
+  applyFillCorrect,
+  applyFillWrong,
+  applyRedoFill,
+  applyUndoFill,
+  type ScoreState,
+} from './score-engine';
 
 export interface MoveRecord {
   op: Op;
@@ -8,12 +25,11 @@ export interface MoveRecord {
   before: CellEntry;
   after: CellEntry;
   clearedNotes: { index: number; value: number }[];
+  scoreDelta: number;
 }
 
 export interface RoomPlayer {
   playerId: PlayerId;
-  mistakes: number;
-  spectating: boolean;
   undoStack: MoveRecord[];
   redoStack: MoveRecord[];
 }
@@ -30,6 +46,9 @@ export class GameRoom {
   private readonly solution: number[];
   private readonly cells: CellEntry[];
   private readonly players = new Map<PlayerId, RoomPlayer>();
+  private readonly scores = new Map<PlayerId, ScoreState>();
+  private readonly notesByPlayer = new Map<PlayerId, Map<number, Set<number>>>();
+  private hadTwoPlayers = false;
   private status: 'playing' | 'won' = 'playing';
 
   constructor(
@@ -49,7 +68,6 @@ export class GameRoom {
       given: v !== 0,
       owner: null,
       wrong: false,
-      notes: [],
     }));
   }
 
@@ -86,312 +104,333 @@ export class GameRoom {
   }
 
   addPlayer(playerId: PlayerId): void {
-    const player: RoomPlayer = {
-      playerId,
-      mistakes: 0,
-      spectating: false,
-      undoStack: [],
-      redoStack: [],
-    };
-    this.players.set(playerId, player);
+    this.players.set(playerId, { playerId, undoStack: [], redoStack: [] });
+    this.scores.set(playerId, { score: 0, combo: 0 });
+    this.notesByPlayer.set(playerId, new Map());
+    if (this.players.size === 2) this.hadTwoPlayers = true;
     this.send(playerId, { type: 'joined', payload: this.snapshotFor(playerId) });
-    const info = this.playerInfo(player);
     for (const p of this.players.values()) {
       if (p.playerId !== playerId) {
-        this.send(p.playerId, { type: 'playerJoined', payload: { player: info } });
+        this.send(p.playerId, { type: 'playerJoined', payload: { player: { id: playerId, score: 0 } } });
       }
     }
   }
 
   removePlayer(playerId: PlayerId): void {
-    if (!this.players.delete(playerId)) return;
-    for (const p of this.players.values()) {
-      this.send(p.playerId, { type: 'playerLeft', payload: { playerId } });
+    if (!this.players.has(playerId)) return;
+    if (this.status === 'playing' && this.hadTwoPlayers) {
+      this.finalize('forfeit', playerId);
+    } else if (this.status === 'won') {
+      for (const p of this.players.values()) {
+        if (p.playerId !== playerId) {
+          this.send(p.playerId, { type: 'playerLeft', payload: { playerId } });
+        }
+      }
     }
+    this.players.delete(playerId);
+    this.scores.delete(playerId);
+    this.notesByPlayer.delete(playerId);
   }
 
   handleOp(playerId: PlayerId, op: Op): void {
-    const player = this.players.get(playerId);
-    if (!player) return;
+    if (!this.players.has(playerId)) return;
     if (this.status !== 'playing') {
       this.reject(playerId, 'game-over');
       return;
     }
-    if (player.spectating) {
-      this.reject(playerId, 'spectating');
-      return;
-    }
     switch (op.kind) {
       case 'fill':
-        this.handleFill(player, op);
+        this.handleFill(playerId, op);
         break;
       case 'erase':
-        this.handleErase(player, op);
+        this.handleErase(playerId, op);
         break;
       case 'note':
-        this.handleNote(player, op);
+        this.handleNote(playerId, op);
         break;
       case 'undo':
-        this.handleUndo(player);
+        this.handleUndo(playerId);
         break;
       case 'redo':
-        this.handleRedo(player);
+        this.handleRedo(playerId);
         break;
     }
   }
 
   snapshotFor(you: PlayerId): Snapshot {
+    const yourNotes: Record<number, number[]> = {};
+    const notes = this.notesByPlayer.get(you);
+    if (notes) {
+      for (const [index, set] of notes) {
+        if (this.cells[index].value === 0) {
+          yourNotes[index] = Array.from(set).sort((a, b) => a - b);
+        }
+      }
+    }
     return {
       roomId: this.roomId,
       difficulty: this.difficulty,
       cells: this.getCells(),
       players: this.getPlayers().map((p) => this.playerInfo(p)),
+      yourNotes,
       startedAt: this.startedAt,
       status: this.status,
       you,
     };
   }
 
-  private handleFill(player: RoomPlayer, op: Extract<Op, { kind: 'fill' }>): void {
+  private handleFill(playerId: PlayerId, op: Extract<Op, { kind: 'fill' }>): void {
     const cell = this.cells[op.index];
     if (cell.given) {
-      this.reject(player.playerId, 'given-cell');
+      this.reject(playerId, 'given-cell');
       return;
     }
-    if (cell.value !== 0 && cell.owner !== player.playerId && !cell.wrong) {
-      this.reject(player.playerId, 'not-overwritable');
+    if (cell.value === op.value) {
+      this.reject(playerId, 'no-op');
       return;
     }
-    if (cell.wrong && cell.value === op.value && cell.owner === player.playerId) {
-      this.reject(player.playerId, 'no-op');
-      return;
-    }
-    if (this.isNoOpFill(cell, op, player.playerId)) {
-      this.reject(player.playerId, 'no-op');
+    if (cell.value !== 0 && cell.owner !== playerId && !cell.wrong) {
+      this.reject(playerId, 'not-overwritable');
       return;
     }
     const before = this.cloneCell(cell);
     if (RuleValidator.isCorrect(this.solution, op.index, op.value)) {
-      const clearedNotes: { index: number; value: number }[] = [];
-      for (const peer of this.peersOf(op.index)) {
-        const peerCell = this.cells[peer];
-        if (peerCell.notes.includes(op.value)) {
-          peerCell.notes = peerCell.notes.filter((n) => n !== op.value);
-          clearedNotes.push({ index: peer, value: op.value });
-        }
+      const clearedByPlayer = new Map<PlayerId, number[]>();
+      const clearedEntries: { index: number; value: number }[] = [];
+      for (const pid of this.players.keys()) {
+        this.notesByPlayer.get(pid)?.delete(op.index);
       }
-      if (cell.notes.includes(op.value)) {
-        clearedNotes.push({ index: op.index, value: op.value });
+      for (const pid of this.players.keys()) {
+        const indexes: number[] = [];
+        for (const peer of this.peersOf(op.index)) {
+          const notes = this.notesByPlayer.get(pid)?.get(peer);
+          if (notes && notes.has(op.value)) {
+            notes.delete(op.value);
+            if (notes.size === 0) this.notesByPlayer.get(pid)?.delete(peer);
+            if (pid === playerId) clearedEntries.push({ index: peer, value: op.value });
+            indexes.push(peer);
+          }
+        }
+        if (indexes.length > 0) clearedByPlayer.set(pid, indexes);
       }
       cell.value = op.value;
       cell.given = false;
-      cell.owner = player.playerId;
+      cell.owner = playerId;
       cell.wrong = false;
-      cell.notes = [];
       const after = this.cloneCell(cell);
-      this.record(player, { op, cellIndex: op.index, before, after, clearedNotes });
+      const { next, delta } = applyFillCorrect(this.scores.get(playerId)!);
+      this.scores.set(playerId, next);
+      this.record(this.players.get(playerId)!, {
+        op,
+        cellIndex: op.index,
+        before,
+        after,
+        clearedNotes: clearedEntries,
+        scoreDelta: delta,
+      });
       const completedUnits = this.completedUnitsFor(op.index);
-      this.broadcast({
-        type: 'opApplied',
-        payload: {
-          playerId: player.playerId,
-          op,
-          result: 'correct',
-          cellIndex: op.index,
-          cell: after,
-          clearedNotes: clearedNotes.map((n) => n.index),
-          completedUnits,
-        },
+      this.broadcastOpApplied(playerId, op, {
+        result: 'correct',
+        cellIndex: op.index,
+        cell: after,
+        completedUnits,
+        scores: this.scoresSnapshot(),
+        clearedByPlayer,
       });
       if (RuleValidator.isComplete(this.boardValues(), this.solution)) {
-        this.status = 'won';
-        this.broadcast({
-          type: 'gameWon',
-          payload: { elapsedSeconds: Math.floor((Date.now() - this.startedAt) / 1000) },
-        });
+        this.finalize('completed');
       }
     } else {
+      for (const pid of this.players.keys()) {
+        this.notesByPlayer.get(pid)?.delete(op.index);
+      }
       cell.value = op.value;
       cell.given = false;
-      cell.owner = player.playerId;
+      cell.owner = playerId;
       cell.wrong = true;
-      cell.notes = [];
       const after = this.cloneCell(cell);
-      this.record(player, { op, cellIndex: op.index, before, after, clearedNotes: [] });
-      player.mistakes += 1;
-      this.broadcast({
-        type: 'opApplied',
-        payload: {
-          playerId: player.playerId,
-          op,
-          result: 'wrong',
-          cellIndex: op.index,
-          cell: after,
-          clearedNotes: [],
-          completedUnits: [],
-        },
+      const { next, delta } = applyFillWrong(this.scores.get(playerId)!);
+      this.scores.set(playerId, next);
+      this.record(this.players.get(playerId)!, {
+        op,
+        cellIndex: op.index,
+        before,
+        after,
+        clearedNotes: [],
+        scoreDelta: delta,
       });
-      if (player.mistakes >= 3) {
-        player.spectating = true;
-        this.broadcast({ type: 'playerLost', payload: { playerId: player.playerId } });
-      }
+      this.broadcastOpApplied(playerId, op, {
+        result: 'wrong',
+        cellIndex: op.index,
+        cell: after,
+        scores: this.scoresSnapshot(),
+        clearedByPlayer: new Map(),
+      });
     }
   }
 
-  private handleErase(player: RoomPlayer, op: Extract<Op, { kind: 'erase' }>): void {
+  private handleErase(playerId: PlayerId, op: Extract<Op, { kind: 'erase' }>): void {
     const cell = this.cells[op.index];
-    if (cell.given || cell.value === 0 || (!cell.wrong && cell.owner !== player.playerId)) {
-      this.reject(player.playerId, 'not-erasable');
+    if (cell.given || cell.value === 0 || cell.owner !== playerId) {
+      this.reject(playerId, 'not-erasable');
       return;
     }
     const before = this.cloneCell(cell);
+    const { next, delta } = applyErase(this.scores.get(playerId)!, !cell.wrong);
+    this.scores.set(playerId, next);
     cell.value = 0;
     cell.owner = null;
     cell.wrong = false;
     const after = this.cloneCell(cell);
-    this.record(player, { op, cellIndex: op.index, before, after, clearedNotes: [] });
-    this.broadcast({
-      type: 'opApplied',
-      payload: {
-        playerId: player.playerId,
-        op,
-        result: 'erased',
-        cellIndex: op.index,
-        cell: after,
-        clearedNotes: [],
-        completedUnits: [],
-      },
+    this.record(this.players.get(playerId)!, {
+      op,
+      cellIndex: op.index,
+      before,
+      after,
+      clearedNotes: [],
+      scoreDelta: delta,
+    });
+    this.broadcastOpApplied(playerId, op, {
+      result: 'erased',
+      cellIndex: op.index,
+      cell: after,
+      scores: this.scoresSnapshot(),
+      clearedByPlayer: new Map(),
     });
   }
 
-  private handleNote(player: RoomPlayer, op: Extract<Op, { kind: 'note' }>): void {
+  private handleNote(playerId: PlayerId, op: Extract<Op, { kind: 'note' }>): void {
     const cell = this.cells[op.index];
     if (cell.given || cell.value !== 0) {
-      this.reject(player.playerId, 'invalid-note-cell');
+      this.reject(playerId, 'invalid-note-cell');
       return;
     }
     const before = this.cloneCell(cell);
-    if (cell.notes.includes(op.value)) {
-      cell.notes = cell.notes.filter((n) => n !== op.value);
-    } else {
-      cell.notes = [...cell.notes, op.value].sort((a, b) => a - b);
-    }
+    this.toggleNote(playerId, op.index, op.value);
     const after = this.cloneCell(cell);
-    this.record(player, { op, cellIndex: op.index, before, after, clearedNotes: [] });
-    this.broadcast({
+    this.record(this.players.get(playerId)!, {
+      op,
+      cellIndex: op.index,
+      before,
+      after,
+      clearedNotes: [],
+      scoreDelta: 0,
+    });
+    const notes = Array.from(this.notesByPlayer.get(playerId)?.get(op.index) ?? []).sort((a, b) => a - b);
+    this.send(playerId, {
       type: 'opApplied',
-      payload: {
-        playerId: player.playerId,
-        op,
-        result: 'note',
-        cellIndex: op.index,
-        cell: after,
-        clearedNotes: [],
-        completedUnits: [],
-      },
+      payload: { playerId, op, result: 'note', scores: this.scoresSnapshot(), notes },
     });
   }
 
-  private handleUndo(player: RoomPlayer): void {
+  private handleUndo(playerId: PlayerId): void {
+    const player = this.players.get(playerId)!;
     const record = player.undoStack.pop();
     if (!record) {
-      this.reject(player.playerId, 'nothing-to-undo');
+      this.reject(playerId, 'nothing-to-undo');
       return;
     }
-    const restored: { index: number; value: number }[] = [];
+    const restored: number[] = [];
     if (this.cellsEqual(this.cells[record.cellIndex], record.after)) {
-      this.cells[record.cellIndex] = this.cloneCell(record.before);
-      for (const entry of record.clearedNotes) {
-        if (entry.index === record.cellIndex) continue;
-        const cell = this.cells[entry.index];
-        if (cell.value === 0 && !cell.notes.includes(entry.value)) {
-          cell.notes = [...cell.notes, entry.value].sort((a, b) => a - b);
-          restored.push({ index: entry.index, value: entry.value });
+      if (record.op.kind === 'note') {
+        if (this.cells[record.cellIndex].value === 0) {
+          this.toggleNote(playerId, record.cellIndex, record.op.value);
+          restored.push(record.cellIndex);
         }
+      } else if (record.op.kind === 'fill') {
+        this.cells[record.cellIndex] = this.cloneCell(record.before);
+        for (const entry of record.clearedNotes) {
+          if (entry.index === record.cellIndex) continue;
+          if (this.cells[entry.index].value === 0 && !this.hasNote(playerId, entry.index, entry.value)) {
+            this.addNote(playerId, entry.index, entry.value);
+            restored.push(entry.index);
+          }
+        }
+      } else {
+        this.cells[record.cellIndex] = this.cloneCell(record.before);
       }
-      if (record.after.wrong) {
-        player.mistakes -= 1;
-      }
+      const { next } = applyUndoFill(this.scores.get(playerId)!, record.scoreDelta);
+      this.scores.set(playerId, next);
+      player.redoStack.push(record);
     }
-    player.redoStack.push(record);
-    this.broadcast({
-      type: 'opApplied',
-      payload: {
-        playerId: player.playerId,
-        op: { kind: 'undo' },
-        result: 'undone',
-        cellIndex: record.cellIndex,
-        cell: this.cloneCell(this.cells[record.cellIndex]),
-        clearedNotes: [],
-        completedUnits: [],
-      },
+    this.broadcastOpApplied(playerId, { kind: 'undo' }, {
+      result: 'undone',
+      cellIndex: record.cellIndex,
+      cell: this.cloneCell(this.cells[record.cellIndex]),
+      scores: this.scoresSnapshot(),
+      clearedByPlayer: restored.length > 0 ? new Map([[playerId, restored]]) : new Map(),
     });
-    for (const entry of restored) {
-      this.broadcastNoteChange(player, entry.index, entry.value);
-    }
   }
 
-  private handleRedo(player: RoomPlayer): void {
+  private handleRedo(playerId: PlayerId): void {
+    const player = this.players.get(playerId)!;
     const record = player.redoStack.pop();
     if (!record) {
-      this.reject(player.playerId, 'nothing-to-redo');
+      this.reject(playerId, 'nothing-to-redo');
       return;
     }
-    const cleared: { index: number; value: number }[] = [];
+    const cleared: number[] = [];
     if (this.cellsEqual(this.cells[record.cellIndex], record.before)) {
-      this.cells[record.cellIndex] = this.cloneCell(record.after);
-      for (const entry of record.clearedNotes) {
-        if (entry.index === record.cellIndex) continue;
-        const cell = this.cells[entry.index];
-        if (cell.value === 0 && cell.notes.includes(entry.value)) {
-          cell.notes = cell.notes.filter((n) => n !== entry.value);
-          cleared.push({ index: entry.index, value: entry.value });
+      if (record.op.kind === 'note') {
+        if (this.cells[record.cellIndex].value === 0) {
+          this.toggleNote(playerId, record.cellIndex, record.op.value);
+          cleared.push(record.cellIndex);
         }
+      } else if (record.op.kind === 'fill') {
+        this.cells[record.cellIndex] = this.cloneCell(record.after);
+        for (const entry of record.clearedNotes) {
+          if (entry.index === record.cellIndex) continue;
+          if (this.cells[entry.index].value === 0 && this.hasNote(playerId, entry.index, entry.value)) {
+            this.removeNote(playerId, entry.index, entry.value);
+            cleared.push(entry.index);
+          }
+        }
+      } else {
+        this.cells[record.cellIndex] = this.cloneCell(record.after);
       }
-      if (record.after.wrong) {
-        player.mistakes += 1;
-      }
+      const { next } = applyRedoFill(this.scores.get(playerId)!, record.scoreDelta);
+      this.scores.set(playerId, next);
+      player.undoStack.push(record);
     }
-    player.undoStack.push(record);
-    this.broadcast({
-      type: 'opApplied',
-      payload: {
-        playerId: player.playerId,
-        op: { kind: 'redo' },
-        result: 'redone',
-        cellIndex: record.cellIndex,
-        cell: this.cloneCell(this.cells[record.cellIndex]),
-        clearedNotes: [],
-        completedUnits: [],
-      },
+    this.broadcastOpApplied(playerId, { kind: 'redo' }, {
+      result: 'redone',
+      cellIndex: record.cellIndex,
+      cell: this.cloneCell(this.cells[record.cellIndex]),
+      scores: this.scoresSnapshot(),
+      clearedByPlayer: cleared.length > 0 ? new Map([[playerId, cleared]]) : new Map(),
     });
-    for (const entry of cleared) {
-      this.broadcastNoteChange(player, entry.index, entry.value);
-    }
   }
 
-  private isNoOpFill(cell: CellEntry, op: Extract<Op, { kind: 'fill' }>, playerId: PlayerId): boolean {
-    if (cell.value !== op.value || cell.wrong || cell.owner !== playerId) return false;
-    if (cell.notes.length > 0) return false;
-    for (const peer of this.peersOf(op.index)) {
-      if (this.cells[peer].notes.includes(op.value)) return false;
+  private broadcastOpApplied(
+    playerId: PlayerId,
+    op: Op,
+    common: {
+      result: 'correct' | 'wrong' | 'erased' | 'undone' | 'redone';
+      cellIndex: number;
+      cell: CellEntry;
+      completedUnits?: CompletedUnit[];
+      scores: Record<PlayerId, number>;
+      clearedByPlayer: Map<PlayerId, number[]>;
+    },
+  ): void {
+    for (const p of this.players.values()) {
+      const payload: Record<string, unknown> = {
+        playerId,
+        op,
+        result: common.result,
+        cellIndex: common.cellIndex,
+        cell: common.cell,
+        scores: common.scores,
+      };
+      if (common.result === 'correct') {
+        payload.completedUnits = common.completedUnits ?? [];
+      }
+      const cleared = common.clearedByPlayer.get(p.playerId);
+      if (cleared !== undefined && cleared.length > 0) {
+        payload.clearedNotes = cleared;
+      }
+      this.send(p.playerId, { type: 'opApplied', payload } as ServerMessage);
     }
-    return true;
-  }
-
-  private broadcastNoteChange(player: RoomPlayer, index: number, value: number): void {
-    this.broadcast({
-      type: 'opApplied',
-      payload: {
-        playerId: player.playerId,
-        op: { kind: 'note', index, value },
-        result: 'note',
-        cellIndex: index,
-        cell: this.cloneCell(this.cells[index]),
-        clearedNotes: [],
-        completedUnits: [],
-      },
-    });
   }
 
   private record(player: RoomPlayer, move: MoveRecord): void {
@@ -399,11 +438,92 @@ export class GameRoom {
     player.redoStack.length = 0;
   }
 
-  private completedUnitsFor(index: number): { type: UnitType; index: number }[] {
+  private finalize(reason: 'completed' | 'forfeit', leavingPlayerId?: PlayerId): void {
+    let winnerId: PlayerId | null = null;
+    const ids = Array.from(this.players.keys());
+    if (reason === 'completed') {
+      if (ids.length === 1) {
+        winnerId = ids[0];
+      } else if (ids.length === 2) {
+        const [a, b] = ids;
+        const sa = this.scores.get(a)?.score ?? 0;
+        const sb = this.scores.get(b)?.score ?? 0;
+        if (sa > sb) winnerId = a;
+        else if (sb > sa) winnerId = b;
+      }
+    } else {
+      for (const id of ids) {
+        if (id !== leavingPlayerId) {
+          winnerId = id;
+          break;
+        }
+      }
+    }
+    this.status = 'won';
+    this.broadcast({
+      type: 'gameOver',
+      payload: {
+        winnerId,
+        reason,
+        scores: this.scoresSnapshot(),
+        elapsedSeconds: Math.floor((Date.now() - this.startedAt) / 1000),
+      },
+    });
+  }
+
+  private toggleNote(playerId: PlayerId, index: number, value: number): void {
+    const notes = this.notesByPlayer.get(playerId)!;
+    const set = notes.get(index);
+    if (set && set.has(value)) {
+      set.delete(value);
+      if (set.size === 0) notes.delete(index);
+    } else if (set) {
+      set.add(value);
+    } else {
+      notes.set(index, new Set([value]));
+    }
+  }
+
+  private hasNote(playerId: PlayerId, index: number, value: number): boolean {
+    return this.notesByPlayer.get(playerId)?.get(index)?.has(value) ?? false;
+  }
+
+  private addNote(playerId: PlayerId, index: number, value: number): void {
+    const notes = this.notesByPlayer.get(playerId)!;
+    let set = notes.get(index);
+    if (!set) {
+      set = new Set();
+      notes.set(index, set);
+    }
+    set.add(value);
+  }
+
+  private removeNote(playerId: PlayerId, index: number, value: number): void {
+    const notes = this.notesByPlayer.get(playerId)!;
+    const set = notes.get(index);
+    if (set) {
+      set.delete(value);
+      if (set.size === 0) notes.delete(index);
+    }
+  }
+
+  private scoresSnapshot(): Record<PlayerId, number> {
+    const out: Record<PlayerId, number> = {};
+    for (const [id, s] of this.scores) {
+      out[id] = s.score;
+    }
+    return out;
+  }
+
+  private playerInfo(player: RoomPlayer): PlayerInfo {
+    return { id: player.playerId, score: this.scores.get(player.playerId)?.score ?? 0 };
+  }
+
+  private completedUnitsFor(index: number): CompletedUnit[] {
     const row = Math.floor(index / 9);
     const col = index % 9;
     const box = Math.floor(row / 3) * 3 + Math.floor(col / 3);
-    const units: { type: UnitType; index: number }[] = [
+    const units: CompletedUnit[] = [
       { type: 'row', index: row },
       { type: 'col', index: col },
       { type: 'box', index: box },
@@ -463,7 +583,7 @@ export class GameRoom {
   }
 
   private cloneCell(cell: CellEntry): CellEntry {
-    return { value: cell.value, given: cell.given, owner: cell.owner, wrong: cell.wrong, notes: [...cell.notes] };
+    return { value: cell.value, given: cell.given, owner: cell.owner, wrong: cell.wrong };
   }
 
   private cellsEqual(a: CellEntry, b: CellEntry): boolean {
@@ -471,14 +591,8 @@ export class GameRoom {
       a.value === b.value &&
       a.given === b.given &&
       a.owner === b.owner &&
-      a.wrong === b.wrong &&
-      a.notes.length === b.notes.length &&
-      a.notes.every((n, i) => n === b.notes[i])
+      a.wrong === b.wrong
     );
-  }
-
-  private playerInfo(player: RoomPlayer): { id: PlayerId; mistakes: number; spectating: boolean } {
-    return { id: player.playerId, mistakes: player.mistakes, spectating: player.spectating };
   }
 
   private reject(playerId: PlayerId, reason: string): void {
