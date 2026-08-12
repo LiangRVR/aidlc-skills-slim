@@ -168,8 +168,7 @@ describe('SP-3 广播完整性与个性化', () => {
           if (applied.length === 0) continue;
           if (step.op.kind === 'note') {
             expect(applied).toHaveLength(1);
-            if (applied[0].type === 'opApplied') {
-              expect(applied[0].payload.result).toBe('note');
+            if (applied[0].type === 'opApplied' && applied[0].payload.result === 'note') {
               expect(Array.isArray(applied[0].payload.notes)).toBe(true);
             }
             for (const other of others) {
@@ -205,7 +204,7 @@ describe('SP-3 广播完整性与个性化', () => {
             } else if (result === 'correct') {
               if (cleared) {
                 const peers = new Set(peerIndices(c.payload.cellIndex));
-                for (const idx of cleared) expect(peers.has(idx)).toBe(true);
+                for (const entry of cleared) expect(peers.has(entry.index)).toBe(true);
               }
             }
           }

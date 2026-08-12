@@ -195,23 +195,24 @@ export class GameRoom {
     }
     const before = this.cloneCell(cell);
     if (RuleValidator.isCorrect(this.solution, op.index, op.value)) {
-      const clearedByPlayer = new Map<PlayerId, number[]>();
+      const clearedByPlayer = new Map<PlayerId, { index: number; value: number }[]>();
       const clearedEntries: { index: number; value: number }[] = [];
       for (const pid of this.players.keys()) {
         this.notesByPlayer.get(pid)?.delete(op.index);
       }
       for (const pid of this.players.keys()) {
-        const indexes: number[] = [];
+        const entries: { index: number; value: number }[] = [];
         for (const peer of this.peersOf(op.index)) {
           const notes = this.notesByPlayer.get(pid)?.get(peer);
           if (notes && notes.has(op.value)) {
             notes.delete(op.value);
             if (notes.size === 0) this.notesByPlayer.get(pid)?.delete(peer);
-            if (pid === playerId) clearedEntries.push({ index: peer, value: op.value });
-            indexes.push(peer);
+            const entry = { index: peer, value: op.value };
+            if (pid === playerId) clearedEntries.push(entry);
+            entries.push(entry);
           }
         }
-        if (indexes.length > 0) clearedByPlayer.set(pid, indexes);
+        if (entries.length > 0) clearedByPlayer.set(pid, entries);
       }
       cell.value = op.value;
       cell.given = false;
@@ -330,12 +331,12 @@ export class GameRoom {
       this.reject(playerId, 'nothing-to-undo');
       return;
     }
-    const restored: number[] = [];
+    const restored: { index: number; value: number }[] = [];
     if (this.cellsEqual(this.cells[record.cellIndex], record.after)) {
       if (record.op.kind === 'note') {
         if (this.cells[record.cellIndex].value === 0) {
           this.toggleNote(playerId, record.cellIndex, record.op.value);
-          restored.push(record.cellIndex);
+          restored.push({ index: record.cellIndex, value: record.op.value });
         }
       } else if (record.op.kind === 'fill') {
         this.cells[record.cellIndex] = this.cloneCell(record.before);
@@ -343,7 +344,7 @@ export class GameRoom {
           if (entry.index === record.cellIndex) continue;
           if (this.cells[entry.index].value === 0 && !this.hasNote(playerId, entry.index, entry.value)) {
             this.addNote(playerId, entry.index, entry.value);
-            restored.push(entry.index);
+            restored.push({ index: entry.index, value: entry.value });
           }
         }
       } else {
@@ -369,12 +370,12 @@ export class GameRoom {
       this.reject(playerId, 'nothing-to-redo');
       return;
     }
-    const cleared: number[] = [];
+    const cleared: { index: number; value: number }[] = [];
     if (this.cellsEqual(this.cells[record.cellIndex], record.before)) {
       if (record.op.kind === 'note') {
         if (this.cells[record.cellIndex].value === 0) {
           this.toggleNote(playerId, record.cellIndex, record.op.value);
-          cleared.push(record.cellIndex);
+          cleared.push({ index: record.cellIndex, value: record.op.value });
         }
       } else if (record.op.kind === 'fill') {
         this.cells[record.cellIndex] = this.cloneCell(record.after);
@@ -382,7 +383,7 @@ export class GameRoom {
           if (entry.index === record.cellIndex) continue;
           if (this.cells[entry.index].value === 0 && this.hasNote(playerId, entry.index, entry.value)) {
             this.removeNote(playerId, entry.index, entry.value);
-            cleared.push(entry.index);
+            cleared.push({ index: entry.index, value: entry.value });
           }
         }
       } else {
@@ -410,7 +411,7 @@ export class GameRoom {
       cell: CellEntry;
       completedUnits?: CompletedUnit[];
       scores: Record<PlayerId, number>;
-      clearedByPlayer: Map<PlayerId, number[]>;
+      clearedByPlayer: Map<PlayerId, { index: number; value: number }[]>;
     },
   ): void {
     for (const p of this.players.values()) {

@@ -52,7 +52,10 @@ const serverMessages: ServerMessage[] = [
       result: 'note',
       scores: { p1: 10 },
       notes: [7, 8, 9],
-      clearedNotes: [39, 41],
+      clearedNotes: [
+        { index: 39, value: 7 },
+        { index: 41, value: 7 },
+      ],
     },
   },
   {

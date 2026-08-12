@@ -29,6 +29,12 @@ export interface CompletedUnit {
   index: number;
 }
 
+/** 笔记变化条目：某格(index)的某个数字(value)笔记被移除（correct/redone）或恢复（undone） */
+export interface ClearedNote {
+  index: number;
+  value: number;
+}
+
 export interface Snapshot {
   roomId: RoomId;
   difficulty: Difficulty;
@@ -58,7 +64,7 @@ export type ServerMessage =
             result: 'note';
             scores: Record<PlayerId, number>;
             notes: number[];
-            clearedNotes?: number[];
+            clearedNotes?: ClearedNote[];
           }
         | {
             playerId: PlayerId;
@@ -68,7 +74,7 @@ export type ServerMessage =
             cell: CellEntry;
             completedUnits: CompletedUnit[];
             scores: Record<PlayerId, number>;
-            clearedNotes?: number[];
+            clearedNotes?: ClearedNote[];
           }
         | {
             playerId: PlayerId;
@@ -77,7 +83,7 @@ export type ServerMessage =
             cellIndex: number;
             cell: CellEntry;
             scores: Record<PlayerId, number>;
-            clearedNotes?: number[];
+            clearedNotes?: ClearedNote[];
           };
     }
   | { type: 'opRejected'; payload: { playerId: PlayerId; reason: string } }
@@ -131,8 +137,12 @@ function isNotes(v: unknown): v is number[] {
   );
 }
 
-function isIndexArray(v: unknown): v is number[] {
-  return Array.isArray(v) && v.every(isIndex);
+function isClearedNote(v: unknown): v is ClearedNote {
+  return isObj(v) && isIndex(v.index) && isInt(v.value, 1, 9);
+}
+
+function isClearedNoteArray(v: unknown): v is ClearedNote[] {
+  return Array.isArray(v) && v.every(isClearedNote);
 }
 
 function isOp(v: unknown): v is Op {
@@ -229,7 +239,7 @@ function isOpAppliedPayload(p: unknown): boolean {
   if (!isOp(p.op)) return false;
   if (!isOpResult(p.result)) return false;
   if (!isScores(p.scores)) return false;
-  if (hasKey(p, 'clearedNotes') && !isIndexArray(p.clearedNotes)) return false;
+  if (hasKey(p, 'clearedNotes') && !isClearedNoteArray(p.clearedNotes)) return false;
   switch (p.result) {
     case 'note':
       return (

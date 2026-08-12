@@ -125,7 +125,7 @@ describe('GameRoom v2 example-based scenarios', () => {
     room.handleOp('B', { kind: 'fill', index: target, value: SOLUTION[target] });
     const applied = lastApplied(recorder, 'B');
     expect(applied.type === 'opApplied' && applied.payload.result).toBe('correct');
-    if (applied.type !== 'opApplied') return;
+    if (applied.type !== 'opApplied' || applied.payload.result !== 'correct') return;
     expect(applied.payload.cell.owner).toBe('B');
     expect(applied.payload.scores['B']).toBe(100);
     expect(room.getCells()[target]).toMatchObject({ value: SOLUTION[target], owner: 'B', wrong: false });
@@ -169,7 +169,7 @@ describe('GameRoom v2 example-based scenarios', () => {
     const bMsgs = recorder.messagesFor('B');
     expect(aMsgs).toHaveLength(1);
     expect(aMsgs[0].type === 'opApplied' && aMsgs[0].payload.result).toBe('note');
-    if (aMsgs[0].type === 'opApplied') expect(aMsgs[0].payload.notes).toEqual([5]);
+    if (aMsgs[0].type === 'opApplied' && aMsgs[0].payload.result === 'note') expect(aMsgs[0].payload.notes).toEqual([5]);
     expect(bMsgs).toHaveLength(0);
     expect(room.snapshotFor('B').yourNotes[target]).toBeUndefined();
     expect(room.snapshotFor('A').yourNotes[target]).toEqual([5]);
@@ -191,11 +191,29 @@ describe('GameRoom v2 example-based scenarios', () => {
     expect(bApplied).toHaveLength(1);
     if (aApplied[0].type !== 'opApplied' || bApplied[0].type !== 'opApplied') return;
     expect(aApplied[0].payload.result).toBe('correct');
-    expect(aApplied[0].payload.clearedNotes).toContain(peer);
-    expect(bApplied[0].payload.clearedNotes).toContain(peer);
+    expect(aApplied[0].payload.clearedNotes).toContainEqual({ index: peer, value: v });
+    expect(bApplied[0].payload.clearedNotes).toContainEqual({ index: peer, value: v });
     expect(bApplied[0].payload.playerId).toBe('A');
     expect(room.snapshotFor('A').yourNotes[peer]).toBeUndefined();
     expect(room.snapshotFor('B').yourNotes[peer]).toBeUndefined();
+  });
+
+  it('10b. 代清只移除被填数字：同格 {5,6} 笔记在填入 6 后保留 5（用户回归）', () => {
+    const { room, recorder } = makeRoom(['A', 'B']);
+    const target = empties[0];
+    const v = SOLUTION[target];
+    const w = v === 9 ? 1 : v + 1;
+    const row = Math.floor(target / 9);
+    const peer = empties.find((i) => Math.floor(i / 9) === row && i !== target) as number;
+    room.handleOp('A', { kind: 'note', index: peer, value: v });
+    room.handleOp('A', { kind: 'note', index: peer, value: w });
+    recorder.clear();
+    room.handleOp('A', { kind: 'fill', index: target, value: v });
+    const aApplied = opsOf(recorder.messagesFor('A'), 'opApplied');
+    expect(aApplied).toHaveLength(1);
+    if (aApplied[0].type !== 'opApplied') return;
+    expect(aApplied[0].payload.clearedNotes).toEqual([{ index: peer, value: v }]);
+    expect(room.snapshotFor('A').yourNotes[peer]).toEqual([w]);
   });
 
   it('11. undo 错填不返还：score 不变、格子恢复为空', () => {

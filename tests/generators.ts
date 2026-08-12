@@ -1,6 +1,7 @@
 import fc from 'fast-check';
 import type {
   CellEntry,
+  ClearedNote,
   ClientMessage,
   CompletedUnit,
   Op,
@@ -104,7 +105,7 @@ const arbScores: fc.Arbitrary<Record<PlayerId, number>> = fc
       .map((scores) => scores as Record<PlayerId, number>)
   );
 
-const arbClearedNotes = fc.array(arbIndex, { maxLength: 20 });
+const arbClearedNotes = fc.array(fc.record({ index: arbIndex, value: arbValue }), { maxLength: 20 });
 
 const arbOpAppliedNote: fc.Arbitrary<ServerMessage> = fc
   .record({
@@ -122,7 +123,7 @@ const arbOpAppliedNote: fc.Arbitrary<ServerMessage> = fc
       result: 'note';
       scores: Record<PlayerId, number>;
       notes: number[];
-      clearedNotes?: number[];
+      clearedNotes?: ClearedNote[];
     } = { ...p };
     if (payload.clearedNotes === undefined) delete payload.clearedNotes;
     return { type: 'opApplied' as const, payload };
@@ -148,7 +149,7 @@ const arbOpAppliedCorrect: fc.Arbitrary<ServerMessage> = fc
       cellIndex: number;
       cell: CellEntry;
       completedUnits: CompletedUnit[];
-      clearedNotes?: number[];
+      clearedNotes?: ClearedNote[];
     } = { ...p };
     if (payload.clearedNotes === undefined) delete payload.clearedNotes;
     return { type: 'opApplied' as const, payload };
@@ -174,7 +175,7 @@ const arbOpAppliedCellResult: fc.Arbitrary<ServerMessage> = fc
       scores: Record<PlayerId, number>;
       cellIndex: number;
       cell: CellEntry;
-      clearedNotes?: number[];
+      clearedNotes?: ClearedNote[];
     } = { ...p };
     if (payload.clearedNotes === undefined) delete payload.clearedNotes;
     return { type: 'opApplied' as const, payload };
@@ -389,7 +390,7 @@ const targetedMutators: Mutator[] = [
     const p = e.payload as Record<string, unknown> | undefined;
     if (e.type !== 'opApplied' || !p || typeof p !== 'object') return null;
     if (!('clearedNotes' in p)) return null;
-    return { ...e, payload: { ...p, clearedNotes: [81] } };
+    return { ...e, payload: { ...p, clearedNotes: [{ index: 81, value: 1 }] } };
   },
   (e) => {
     const p = e.payload as Record<string, unknown> | undefined;
