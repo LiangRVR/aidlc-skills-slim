@@ -4,14 +4,15 @@ export type ControlAction = 'undo' | 'redo' | 'hint' | 'note' | 'new' | 'reset';
 
 export interface ControlBarInfo {
   elapsedSeconds: number;
-  mistakes: number;
-  maxMistakes: number;
   canUndo: boolean;
   canRedo: boolean;
   noteMode: boolean;
   difficultyLabel: string;
   capabilities?: { hint: boolean; reset: boolean; newGame: boolean };
   newButtonLabel?: string;
+  /** 本地模式沿用传参；已不再展示（FR-37） */
+  mistakes?: number;
+  maxMistakes?: number;
 }
 
 const ACTIONS: { action: ControlAction; label: string }[] = [
@@ -31,15 +32,11 @@ export function formatTime(seconds: number): string {
 
 export class ControlBar {
   private readonly timerText: Phaser.GameObjects.Text;
-  private readonly mistakesText: Phaser.GameObjects.Text;
   private readonly difficultyText: Phaser.GameObjects.Text;
   private readonly buttons = new Map<ControlAction, { bg: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }>();
 
   constructor(scene: Phaser.Scene, x: number, y: number, width: number, onAction: (action: ControlAction) => void) {
     this.timerText = scene.add.text(x, y, '时间 00:00', { fontFamily: 'Arial', fontSize: '18px', color: '#37474f' });
-    this.mistakesText = scene.add
-      .text(x + width / 2, y, '错误 0/3', { fontFamily: 'Arial', fontSize: '18px', color: '#37474f' })
-      .setOrigin(0.5, 0);
     this.difficultyText = scene.add
       .text(x + width, y, '', { fontFamily: 'Arial', fontSize: '18px', color: '#37474f' })
       .setOrigin(1, 0);
@@ -62,7 +59,6 @@ export class ControlBar {
 
   render(info: ControlBarInfo): void {
     this.timerText.setText(`时间 ${formatTime(info.elapsedSeconds)}`);
-    this.mistakesText.setText(`错误 ${info.mistakes}/${info.maxMistakes}`);
     this.difficultyText.setText(info.difficultyLabel);
     this.setEnabled('undo', info.canUndo);
     this.setEnabled('redo', info.canRedo);

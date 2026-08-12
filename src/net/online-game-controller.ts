@@ -6,8 +6,19 @@ import type { BoardSnapshot } from '../ui/board-view';
 import type { CellEntry, Op, PlayerId, PlayerInfo, ServerMessage } from '../../shared/protocol';
 import type { WsTransport } from './ws-client';
 
+/** ScoreBoard 数据更新事件（joined 与每条 opApplied 后派发；payload: { scores, you }） */
+export const ONLINE_SCORES_EVENT = 'online:scores';
+
+export interface GameOverData {
+  winnerId: PlayerId | null;
+  reason: 'completed' | 'forfeit';
+  scores: Record<PlayerId, number>;
+  elapsedSeconds: number;
+}
+
 interface MirrorState {
   cells: CellEntry[];
+  ownNotes: Map<number, Set<number>>;
   players: PlayerInfo[];
   startedAt: number;
   status: 'playing' | 'won';
@@ -21,11 +32,9 @@ export class OnlineGameController implements IGameController {
   private mirror: MirrorState | null = null;
   private selectedIndex: CellIndex | null = null;
   private noteMode = false;
-  private myMistakes = 0;
-  private selfSpectating = false;
   private disconnected = false;
   private voluntaryClose = false;
-  private wonElapsedSeconds = 0;
+  private gameOverData: GameOverData | null = null;
   private pendingDifficulty: Difficulty = 'medium';
 
   constructor(bus: EventBus, ws: WsTransport) {
@@ -102,7 +111,7 @@ export class OnlineGameController implements IGameController {
   }
 
   isReadOnly(): boolean {
-    return this.selfSpectating || this.disconnected;
+    return this.disconnected || this.mirror?.status === 'won';
   }
 
   capabilities(): ControllerCapabilities {
@@ -117,17 +126,10 @@ export class OnlineGameController implements IGameController {
     return this.noteMode;
   }
 
-  getMyMistakes(): number {
-    return this.myMistakes;
-  }
-
   getElapsedSeconds(): number {
+    if (this.gameOverData) return this.gameOverData.elapsedSeconds;
     if (!this.mirror) return 0;
     return Math.max(0, Math.floor((Date.now() - this.mirror.startedAt) / 1000));
-  }
-
-  getWonElapsedSeconds(): number {
-    return this.wonElapsedSeconds;
   }
 
   getDifficulty(): Difficulty {
@@ -142,8 +144,8 @@ export class OnlineGameController implements IGameController {
     return this.mirror?.players.length ?? 1;
   }
 
-  isSelfSpectating(): boolean {
-    return this.selfSpectating;
+  getGameOverData(): GameOverData | null {
+    return this.gameOverData;
   }
 
   snapshot(): BoardSnapshot {
@@ -164,9 +166,13 @@ export class OnlineGameController implements IGameController {
     for (let i = 0; i < 81; i++) {
       if (mirror.cells[i].wrong) wrongCells.add(i);
     }
+    const notes: number[][] = Array.from({ length: 81 }, () => []);
+    for (const [index, set] of mirror.ownNotes) {
+      notes[index] = Array.from(set);
+    }
     return {
       board: mirror.cells.map((c) => c.value),
-      notes: mirror.cells.map((c) => [...c.notes]),
+      notes,
       isGiven: (index: number) => mirror.cells[index].given,
       selectedIndex: this.selectedIndex,
       conflicts: new Set<number>(),
@@ -180,50 +186,78 @@ export class OnlineGameController implements IGameController {
     switch (msg.type) {
       case 'joined': {
         const s = msg.payload;
+        const ownNotes = new Map<number, Set<number>>();
+        for (const key of Object.keys(s.yourNotes)) {
+          const index = Number(key);
+          ownNotes.set(index, new Set(s.yourNotes[index]));
+        }
         this.mirror = {
-          cells: s.cells.map((c) => ({ ...c, notes: [...c.notes] })),
+          cells: s.cells.map((c) => ({ ...c })),
+          ownNotes,
           players: s.players.map((p) => ({ ...p })),
           startedAt: s.startedAt,
           status: s.status,
           you: s.you,
           difficulty: s.difficulty,
         };
-        const me = this.mirror.players.find((p) => p.id === s.you);
-        this.myMistakes = me?.mistakes ?? 0;
-        this.selfSpectating = me?.spectating ?? false;
         this.bus.emit(EVENTS.STATE_CHANGED);
+        this.emitScores(this.scoresFrom(s.players));
         break;
       }
       case 'opApplied': {
         const mirror = this.mirror;
         if (!mirror) return;
         const p = msg.payload;
-        const beforeCell = mirror.cells[p.cellIndex];
-        const wasMyWrongCell = beforeCell.wrong && beforeCell.owner === mirror.you;
-        if (p.result === 'correct' && p.op.kind === 'fill') {
-          const fillValue = p.op.value;
-          for (const idx of p.clearedNotes) {
-            const c = mirror.cells[idx];
-            if (idx !== p.cellIndex && c.value === 0 && c.notes.includes(fillValue)) {
-              c.notes = c.notes.filter((n) => n !== fillValue);
+        if (p.result === 'note') {
+          // 私有部分：notes → 整格替换自己的笔记（BR-C-15）
+          if (p.op.kind === 'note') {
+            const index = p.op.index;
+            if (p.notes.length === 0) mirror.ownNotes.delete(index);
+            else mirror.ownNotes.set(index, new Set(p.notes));
+          }
+        } else {
+          // 公共部分：应用格子变化
+          mirror.cells[p.cellIndex] = { ...p.cell };
+          if (p.cell.value !== 0) mirror.ownNotes.delete(p.cellIndex);
+        }
+        // 私有部分：clearedNotes 条目化——correct/redone 移除该数字；undone 恢复该数字（BR-C-15 v2.1）
+        if (p.clearedNotes) {
+          for (const entry of p.clearedNotes) {
+            if (p.result === 'undone') {
+              if (mirror.cells[entry.index].value !== 0) continue;
+              let set = mirror.ownNotes.get(entry.index);
+              if (!set) {
+                set = new Set();
+                mirror.ownNotes.set(entry.index, set);
+              }
+              set.add(entry.value);
+            } else {
+              const set = mirror.ownNotes.get(entry.index);
+              if (set) {
+                set.delete(entry.value);
+                if (set.size === 0) mirror.ownNotes.delete(entry.index);
+              }
             }
           }
         }
-        mirror.cells[p.cellIndex] = { ...p.cell, notes: [...p.cell.notes] };
-        if (p.playerId === mirror.you) {
-          if (p.result === 'correct') {
-            this.bus.emit(EVENTS.VFX_CORRECT, { index: p.cellIndex, completedUnits: p.completedUnits.map((u) => u.type) });
-          } else if (p.result === 'wrong') {
-            this.myMistakes += 1;
-            this.bus.emit(EVENTS.VFX_WRONG, { index: p.cellIndex });
-          } else if (p.result === 'undone' && wasMyWrongCell) {
-            this.myMistakes = Math.max(0, this.myMistakes - 1);
-          }
+        // 公共部分：scores → 更新 players 镜像与 ScoreBoard
+        for (const player of mirror.players) {
+          const score = p.scores[player.id];
+          if (score !== undefined) player.score = score;
+        }
+        this.emitScores(p.scores);
+        // 仅自己 correct 派发本地 VFX（BR-C-03，含 completedUnits）
+        if (p.playerId === mirror.you && p.result === 'correct') {
+          this.bus.emit(EVENTS.VFX_CORRECT, {
+            index: p.cellIndex,
+            completedUnits: p.completedUnits.map((u) => u.type),
+          });
         }
         this.bus.emit(EVENTS.STATE_CHANGED);
         break;
       }
       case 'opRejected':
+        console.log('op rejected:', msg.payload.reason);
         break;
       case 'playerJoined': {
         const mirror = this.mirror;
@@ -243,24 +277,17 @@ export class OnlineGameController implements IGameController {
         this.bus.emit(EVENTS.STATE_CHANGED);
         break;
       }
-      case 'playerLost': {
+      case 'gameOver': {
         const mirror = this.mirror;
         if (!mirror) return;
-        const target = mirror.players.find((pl) => pl.id === msg.payload.playerId);
-        if (target) target.spectating = true;
-        if (msg.payload.playerId === mirror.you) {
-          this.selfSpectating = true;
-        } else {
-          this.bus.emit(EVENTS.ONLINE_OPPONENT_LOST);
-        }
-        this.bus.emit(EVENTS.STATE_CHANGED);
-        break;
-      }
-      case 'gameWon': {
-        const mirror = this.mirror;
-        if (!mirror) return;
+        const p = msg.payload;
+        this.gameOverData = {
+          winnerId: p.winnerId,
+          reason: p.reason,
+          scores: { ...p.scores },
+          elapsedSeconds: p.elapsedSeconds,
+        };
         mirror.status = 'won';
-        this.wonElapsedSeconds = msg.payload.elapsedSeconds;
         this.bus.emit(EVENTS.GAME_WON);
         this.bus.emit(EVENTS.STATE_CHANGED);
         break;
@@ -269,5 +296,17 @@ export class OnlineGameController implements IGameController {
         this.bus.emit(EVENTS.ERROR_MESSAGE, msg.payload.message);
         break;
     }
+  }
+
+  private emitScores(scores: Record<PlayerId, number>): void {
+    const mirror = this.mirror;
+    if (!mirror) return;
+    this.bus.emit(ONLINE_SCORES_EVENT, { scores: { ...scores }, you: mirror.you });
+  }
+
+  private scoresFrom(players: PlayerInfo[]): Record<PlayerId, number> {
+    const out: Record<PlayerId, number> = {};
+    for (const p of players) out[p.id] = p.score;
+    return out;
   }
 }

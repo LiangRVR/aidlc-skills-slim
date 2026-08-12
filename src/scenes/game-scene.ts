@@ -3,13 +3,17 @@ import type { IGameController } from '../core/game-controller';
 import { RuleValidator } from '../core/rule-validator';
 import { EVENTS, MAX_MISTAKES, type Difficulty } from '../core/types';
 import type { OnlineGameController } from '../net/online-game-controller';
+import { ONLINE_SCORES_EVENT } from '../net/online-game-controller';
 import { BoardView, BOARD_SIZE, type BoardSnapshot } from '../ui/board-view';
 import { NumberPad } from '../ui/number-pad';
 import { ControlBar, formatTime, type ControlAction } from '../ui/control-bar';
 import { ResultOverlay } from '../ui/result-overlay';
 import { JoinToast } from '../ui/join-toast';
 import { PlayerCountBadge } from '../ui/player-count-badge';
+import { ScoreBoard } from '../ui/score-board';
+import { GameOverOverlay } from '../ui/game-over-overlay';
 import { VfxManager, type CompletedUnit } from '../ui/vfx-manager';
+import type { PlayerId } from '../../shared/protocol';
 
 const DIFFICULTY_LABELS: Record<Difficulty, string> = {
   easy: '简单',
@@ -28,7 +32,8 @@ export class GameScene extends Phaser.Scene {
   private vfx!: VfxManager;
   private badge: PlayerCountBadge | null = null;
   private toast: JoinToast | null = null;
-  private spectatorBanner: Phaser.GameObjects.Text | null = null;
+  private scoreBoard: ScoreBoard | null = null;
+  private gameOverOverlay: GameOverOverlay | null = null;
   private timerEvent?: Phaser.Time.TimerEvent;
   private readonly onVisibility = (): void => {
     if (this.timerEvent && !this.online) this.timerEvent.paused = document.hidden;
@@ -59,14 +64,8 @@ export class GameScene extends Phaser.Scene {
     if (this.online) {
       this.badge = new PlayerCountBadge(this, width - 4, 34);
       this.toast = new JoinToast(this, width - 4, 58);
-      this.spectatorBanner = this.add
-        .text(width / 2, 70, '旁观中（错误已满 3 次）', {
-          fontFamily: 'Arial',
-          fontSize: '16px',
-          color: '#d32f2f',
-        })
-        .setOrigin(0.5)
-        .setVisible(false);
+      this.scoreBoard = new ScoreBoard(this, width / 2, 14);
+      this.gameOverOverlay = new GameOverOverlay(this, width, height);
     }
     this.subscribeBus();
     this.bindKeyboard();
@@ -101,8 +100,8 @@ export class GameScene extends Phaser.Scene {
       bus.on(EVENTS.CONNECTION_LOST, this.onConnectionLost);
       bus.on(EVENTS.ONLINE_PLAYER_JOINED, this.onPlayerJoined);
       bus.on(EVENTS.ONLINE_PLAYER_LEFT, this.onPlayerLeft);
-      bus.on(EVENTS.ONLINE_OPPONENT_LOST, this.onOpponentLost);
       bus.on(EVENTS.ERROR_MESSAGE, this.onErrorMessage);
+      bus.on(ONLINE_SCORES_EVENT, this.onScoresUpdated);
     }
   }
 
@@ -206,21 +205,15 @@ export class GameScene extends Phaser.Scene {
     const completedDigits = new Set<number>();
     for (let d = 1; d <= 9; d++) {
       let placed = 0;
-      let hasWrong = false;
       for (let i = 0; i < 81; i++) {
-        if (snapshot.board[i] === d) {
-          placed++;
-          if (snapshot.wrongCells.has(i)) hasWrong = true;
-        }
+        if (snapshot.board[i] === d && !snapshot.wrongCells.has(i)) placed++;
       }
-      if (placed === 9 && !hasWrong) completedDigits.add(d);
+      if (placed === 9) completedDigits.add(d);
     }
     this.numberPad.setDisabledDigits(completedDigits);
     this.numberPad.setNoteMode(online.getNoteMode());
     this.controlBar.render({
       elapsedSeconds: online.getElapsedSeconds(),
-      mistakes: online.getMyMistakes(),
-      maxMistakes: MAX_MISTAKES,
       canUndo: !online.isReadOnly(),
       canRedo: !online.isReadOnly(),
       noteMode: online.getNoteMode(),
@@ -229,7 +222,6 @@ export class GameScene extends Phaser.Scene {
       newButtonLabel: '菜单',
     });
     this.badge?.setCount(online.getPlayerCount());
-    this.spectatorBanner?.setVisible(online.isSelfSpectating());
   }
 
   private onDigitInput(value: number): void {
@@ -267,9 +259,11 @@ export class GameScene extends Phaser.Scene {
 
   private readonly onWon = (): void => {
     if (this.online) {
-      this.overlay.show('胜利！', `用时 ${formatTime(this.online.getWonElapsedSeconds())}`, '返回主菜单', () =>
-        this.leaveAndMenu(),
-      );
+      const data = this.online.getGameOverData();
+      const you = this.online.snapshot().you;
+      if (data && you && this.gameOverOverlay) {
+        this.gameOverOverlay.show(data, you, () => this.leaveAndMenu());
+      }
       return;
     }
     const state = this.controller.getState();
@@ -305,8 +299,9 @@ export class GameScene extends Phaser.Scene {
     this.toast?.show('对方已离开');
   };
 
-  private readonly onOpponentLost = (): void => {
-    this.toast?.show('对方已旁观');
+  private readonly onScoresUpdated = (payload?: unknown): void => {
+    const data = payload as { scores: Record<PlayerId, number>; you: PlayerId };
+    this.scoreBoard?.update(data.scores, data.you);
   };
 
   private readonly onErrorMessage = (payload?: unknown): void => {
@@ -327,8 +322,8 @@ export class GameScene extends Phaser.Scene {
     bus.off(EVENTS.CONNECTION_LOST, this.onConnectionLost);
     bus.off(EVENTS.ONLINE_PLAYER_JOINED, this.onPlayerJoined);
     bus.off(EVENTS.ONLINE_PLAYER_LEFT, this.onPlayerLeft);
-    bus.off(EVENTS.ONLINE_OPPONENT_LOST, this.onOpponentLost);
     bus.off(EVENTS.ERROR_MESSAGE, this.onErrorMessage);
+    bus.off(ONLINE_SCORES_EVENT, this.onScoresUpdated);
     this.vfx.destroy();
     document.removeEventListener('visibilitychange', this.onVisibility);
   }

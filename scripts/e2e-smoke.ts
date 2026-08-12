@@ -104,13 +104,30 @@ async function main(): Promise<void> {
     assert(true, 'A notified playerJoined');
 
     const emptyIdx = joinedA.payload.cells.findIndex((c) => !c.given);
-    const solutionValue = -1;
-    void solutionValue;
     a.send({ type: 'op', payload: { op: { kind: 'note', index: emptyIdx, value: 1 } } });
     const appliedA = await a.waitFor((m) => m.type === 'opApplied');
     assert(appliedA.type === 'opApplied' && appliedA.payload.result === 'note', 'A note opApplied (authoritative confirm)');
+    if (appliedA.type === 'opApplied' && appliedA.payload.result === 'note') {
+      assert(appliedA.payload.notes.includes(1), 'A note opApplied carries own notes');
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    assert(!b.inbox.some((m) => m.type === 'opApplied'), 'B receives nothing for A note (notes are private)');
+
+    const emptyIdx2 = joinedA.payload.cells.findIndex((c, i) => !c.given && i !== emptyIdx);
+    b.send({ type: 'op', payload: { op: { kind: 'fill', index: emptyIdx2, value: 1 } } });
     const appliedB = await b.waitFor((m) => m.type === 'opApplied');
-    assert(appliedB.type === 'opApplied' && appliedB.payload.cellIndex === emptyIdx, 'B received broadcast with cellIndex');
+    assert(
+      appliedB.type === 'opApplied' && (appliedB.payload.result === 'correct' || appliedB.payload.result === 'wrong'),
+      'B fill opApplied (correct or wrong)',
+    );
+    const broadcastA = await a.waitFor((m) => m.type === 'opApplied' && m.payload.result !== 'note');
+    assert(
+      broadcastA.type === 'opApplied' && broadcastA.payload.result !== 'note' && broadcastA.payload.cellIndex === emptyIdx2,
+      'A received fill broadcast with cellIndex',
+    );
+    if (broadcastA.type === 'opApplied') {
+      assert(typeof broadcastA.payload.scores[broadcastA.payload.playerId] === 'number', 'opApplied carries scores');
+    }
 
     const givenIdx = joinedA.payload.cells.findIndex((c) => c.given);
     const givenValue = joinedA.payload.cells[givenIdx].value;
@@ -119,20 +136,23 @@ async function main(): Promise<void> {
     assert(rejected.type === 'opRejected' && rejected.payload.reason === 'given-cell', 'given-cell fill rejected');
 
     b.close();
-    await a.waitFor((m) => m.type === 'playerLeft');
-    assert(true, 'A notified playerLeft after B disconnect');
+    const overA = await a.waitFor((m) => m.type === 'gameOver');
+    assert(overA.type === 'gameOver' && overA.payload.reason === 'forfeit', 'A notified gameOver forfeit after B disconnect');
+    if (overA.type === 'gameOver') {
+      assert(overA.payload.winnerId === youA, 'forfeit winner is remaining player A');
+    }
 
     const c = new TestClient();
     await c.connect();
     c.send({ type: 'join', payload: { difficulty: 'easy' } });
     const joinedC = await c.waitFor((m) => m.type === 'joined');
-    assert(joinedC.type === 'joined' && joinedC.payload.roomId === roomId, 'C refills vacated slot');
+    assert(joinedC.type === 'joined' && joinedC.payload.roomId !== roomId, 'C gets a fresh room (no refill into forfeited room)');
     if (joinedC.type === 'joined') {
       const cInfo = joinedC.payload.players.find((p) => p.id === joinedC.payload.you);
-      assert(cInfo !== undefined && cInfo.mistakes === 0, 'C mistakes start at 0');
-      assert(joinedC.payload.cells[emptyIdx].notes.includes(1), 'C sees A note from current board');
+      assert(cInfo !== undefined && cInfo.score === 0, 'C score starts at 0');
+      assert(joinedC.payload.players.length === 1, 'C alone in fresh room');
+      assert(joinedC.payload.yourNotes[emptyIdx] === undefined, 'C cannot see other player notes (private)');
     }
-    void youA;
     a.close();
     c.close();
     console.log('[e2e] ALL SCENARIOS PASSED');
