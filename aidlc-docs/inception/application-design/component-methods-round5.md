@@ -79,7 +79,8 @@ interface OpApplied {
   scores: Record<PlayerId, number>;     // 公共：双方最新总分（连击计数不下发，Q2 补充）
   // —— 以下仅存在于发给"归属者本人"的个性化副本 ——
   notes?: number[];                     // 私有：note op 后该格自己的笔记全集
-  clearedNotes?: number[];              // 私有：本次操作联动清除/恢复的、自己的笔记格索引
+  clearedNotes?: ClearedNote[];         // 私有：本次操作联动清除/恢复的、自己的笔记条目 {index, value}（v2.1 修正案 2026-08-12：由 number[] 格索引改为条目数组——格索引粒度导致整格笔记被误清）
+  // correct/redone：这些 {格, 数字} 笔记被移除；undone：这些 {格, 数字} 笔记被恢复
 }
 ```
 

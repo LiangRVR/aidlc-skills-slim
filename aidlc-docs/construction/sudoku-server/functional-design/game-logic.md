@@ -140,7 +140,7 @@ finalize(reason: 'completed' | 'forfeit')
 对同一已接受 op，为房间内每个接收者 r 装配独立副本：
   公共部分（所有副本相同）：playerId, op, result, cellIndex?, cell?, completedUnits?, scores（全房最新总分）
   私有部分：
-    r === 笔记归属者 → clearedNotes: r 自己被联动清除/恢复的格索引（fill correct 时双方各自不同；undo/redo 仅发起者有）
+    r === 笔记归属者 → clearedNotes: r 自己被联动清除/恢复的 {格, 数字} 条目（v2.1：fill correct 时双方各自不同；undo/redo 仅发起者有；undone=恢复语义、correct/redone=移除语义）
     note op → 仅装配发起者副本（含 notes 全集），不向对方发送
   经 ConnectionManager.send(r.playerId, 副本) 定向送达
 ```

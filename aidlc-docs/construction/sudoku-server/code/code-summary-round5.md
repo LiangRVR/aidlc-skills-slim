@@ -25,6 +25,12 @@ executor 实施时发现 FD 文档与冻结契约（component-methods-round5.md�
 
 其他实施期决策（规范内）：
 - 主格笔记在任何 fill 成功时双方静默清除（保证 BR-P-11"yourNotes 仅含空格"），不出现在 clearedNotes
+
+## v2.1 协议修正案（2026-08-12，用户回归发现）
+- **缺陷**：`clearedNotes: number[]`（格索引）粒度过粗——客户端整格删除笔记，填入 6 会把同格 {5,6} 笔记全清；且 undone 的"恢复"语义被客户端当"删除"应用
+- **修正**：协议 `clearedNotes` 改 `ClearedNote[]`（{index, value} 条目，含校验器 isClearedNoteArray）；服务端 fill/undo/redo 三处构造点条目化（undo/redo 含 note op 的 {cellIndex, record.op.value}）；语义：correct/redone=移除该数字、undone=恢复该数字
+- **回归测试**：game-room.test 10b（{5,6} 笔记填 6 保留 5）；场景 10 断言改 toContainEqual
+- 验证：182/182 绿（+2 新测试）、tsc 0、e2e 17/17
 - fill 判定顺序：given → 同值 no-op → 覆盖权限（对方正确格同值填回 'no-op'）
 - 过期 undo/redo 记录丢弃不入对面栈（BR-S-10"丢弃该记录"）
 - forfeit 的 gameOver 广播含离开者（移除前发送；断线场景发送自然失败无副作用）

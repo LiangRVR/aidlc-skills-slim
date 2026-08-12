@@ -107,9 +107,12 @@
 - [ ] Functional Design (unit 2: sudoku-server) - EXECUTE - COMPLETED 2026-08-11T07:55:00Z (v2 rewrite), approved (approve-continue)
 - [ ] NFR Requirements (unit 2) - EXECUTE (minimal) - COMPLETED 2026-08-11T09:45:00Z, approved (approve-continue)
 - [ ] Code Generation (unit 2) - EXECUTE - COMPLETED 2026-08-11T10:40:00Z (99/99 tests green), approved (approve-continue)
-- [ ] Functional Design (unit 3: sudoku-online-client) - EXECUTE - ARTIFACTS COMPLETE 2026-08-11T11:25:00Z (v2 rewrite), awaiting approval
+- [ ] Functional Design (unit 3: sudoku-online-client) - EXECUTE - COMPLETED 2026-08-11T11:25:00Z (v2 rewrite), approved (approve-continue)
+- [ ] NFR Requirements (unit 3) - EXECUTE (minimal) - COMPLETED 2026-08-12T00:10:00Z, approved (approve-continue)
+- [ ] Code Generation (unit 3) - EXECUTE - COMPLETED 2026-08-12T09:40:00Z (180/180 tests green, tsc clean, e2e 17/17), approved (approve-continue)
+- [ ] Build and Test - EXECUTE - ARTIFACTS COMPLETE 2026-08-12T09:50:00Z; manual browser scenarios CONFIRMED PASS 2026-08-12T11:10:00Z (3 bugs found & fixed during verification), awaiting approval
 
 ### Current Stage
-- **Stage**: CONSTRUCTION - Functional Design (unit 3: sudoku-online-client, Round 5)
-- **Pending**: user approval -> NFR Requirements (unit 3)
+- **Stage**: CONSTRUCTION - Build and Test (Round 5)
+- **Pending**: user approval -> OPERATIONS
 - **Unit sequence (Round 5)**: shared-protocol ✔ -> sudoku-server ✔ -> sudoku-online-client

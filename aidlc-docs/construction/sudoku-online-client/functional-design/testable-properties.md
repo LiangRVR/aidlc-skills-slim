@@ -6,7 +6,7 @@ PBT 框架：fast-check + Vitest（NFR-9/10）。不启动真实 ws——WebSock
 
 **性质**：以 `joined(Snapshot v2)` 初始化后，对任意**个性化 opApplied 流**（生成器按接收方视角生成：公共部分 + 可选 notes/clearedNotes）逐步应用：
 1. 镜像 cells 与"Snapshot + 逐条 opApplied 公共部分简单重放的参考实现"逐格相等（owner/value/wrong）；
-2. 镜像 ownNotes 与"yourNotes + notes 整格替换 + clearedNotes 移除的参考实现"逐格相等；
+2. 镜像 ownNotes 与"yourNotes + notes 整格替换 + clearedNotes 条目级移除/恢复（correct/redone 删该格该数字、undone 空格上加回该数字，v2.1）的参考实现"逐格相等；
 3. 镜像永不含非法 CellEntry；**ownNotes 键只出现在 value===0 的格子上**（BR-P-11 客户端对应）；
 4. players 与 player* 消息流一致；players[].score 与最近一条 opApplied.scores 一致。
 **参考实现**：测试内独立重放器（公共字段重放 + ownNotes 独立重放）。
@@ -42,7 +42,8 @@ PBT 框架：fast-check + Vitest（NFR-9/10）。不启动真实 ws——WebSock
 | 自己填对 | VFX 1 次；镜像 cell owner=you；ScoreBoard 更新为 scores |
 | 对方填对 | 无 VFX；该格 owner=对方；ScoreBoard 对方分数变化 |
 | 笔记私有 | result='note' 副本 → ownNotes[cellIndex]=notes；渲染快照 notes 同步 |
-| 笔记代清 | clearedNotes 格从 ownNotes 移除 |
+| 笔记代清 | clearedNotes 条目只移除对应数字，同格其余笔记保留（v2.1 回归：填 6 不得清掉笔记 5） |
+| undo 笔记恢复 | undone 的 clearedNotes 条目把对应数字加回 ownNotes（v2.1 新增场景 5b） |
 | 错填覆盖 | 对方 wrong 格经自己 correct opApplied 后 owner=you、wrong=false |
 | gameOver completed 胜 | 覆盖层数据：winnerId=you→"你赢了"；scores/elapsedSeconds 透传；isReadOnly()=true |
 | gameOver completed 平局 | winnerId=null→"平局" |

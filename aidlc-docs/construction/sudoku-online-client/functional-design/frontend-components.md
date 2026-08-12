@@ -30,8 +30,8 @@ MenuScene（无变更）
 
 ## ScoreBoard（新增 F8，FR-31/BR-C-13）
 
-- **位置**：棋盘上方或侧栏固定区（与 PlayerCountBadge 不重叠）；非交互（不监听 pointer 事件）。
-- **渲染**：两行文本——"自己: n 分" / "对方: m 分"；自己行可加重样式区分。
+- **位置**：**顶部中央单行**（计时左、难度右之间的空区，y=14；自己行右对齐于中线 -8px、对方行左对齐于中线 +8px）；与 PlayerCountBadge（右上）不重叠；非交互（不监听 pointer 事件）。
+- **渲染**：单行双段——"自己: n 分"（蓝色加粗）+ "对方: m 分"；~~两行纵向堆叠~~（v2 初版，因与按钮行重叠改为单行，2026-08-12 联调反馈）；自己段加重样式区分。
 - **state**：`scores: Record<PlayerId, number>` + `you`；`update(scores, you)` 由 GameScene 在 joined 与每条 opApplied（公共 scores 字段）后调用；gameOver 后定格最终分。
 - **data-testid**：`score-board`、`score-board-self`、`score-board-opponent`。
 
@@ -52,6 +52,7 @@ MenuScene（无变更）
 
 - capabilities 驱动禁用不变（hint/reset/newGame 联机禁用）。
 - **移除**："错误 x/3"计数显示（myMistakes 已废，FR-37）；联机模式错误反馈仅靠错填红字与分数扣减。
+- ~~图标按钮化~~（2026-08-12 试行，同日用户目验后回滚为文字按钮）。
 - **data-testid**：沿用。
 
 ## PlayerCountBadge / JoinToast（无变更）

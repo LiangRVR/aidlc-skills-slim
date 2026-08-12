@@ -33,7 +33,7 @@ ws 断开（非主动）-> disconnected=true -> "连接已断开"覆盖层（BR-
 |---|---|
 | joined | 初始化镜像（含 ownNotes←yourNotes）；启动计时显示；PlayerCountBadge；ScoreBoard 初始分数 |
 | opApplied（公共部分） | 应用 cell/cellIndex 到镜像 cells；`scores` → 更新 players 镜像 + ScoreBoard.update；`playerId===自己 && result==='correct'` → 本地 VFX（含 completedUnits，FR-20）；对方 op → 仅镜像渲染（owner 黑色，无 VFX） |
-| opApplied（私有部分，仅自己副本携带） | `notes`（result='note'）→ ownNotes[cellIndex] 整格替换；`clearedNotes` → ownNotes 移除这些格（BR-C-15） |
+| opApplied（私有部分，仅自己副本携带） | `notes`（result='note'）→ ownNotes[cellIndex] 整格替换；`clearedNotes`（{index,value} 条目，v2.1）→ correct/redone 移除该格该数字（同格其余保留）；undone 恢复该格该数字（仅空格生效）（BR-C-15） |
 | opRejected | 镜像无变化；console 记录 reason |
 | playerJoined | JoinToast.show('有玩家加入')；players +1（score:0）；Badge 更新 |
 | playerLeft（仅 won 房间） | players -1；Badge 更新；JoinToast.show('对方已离开') |

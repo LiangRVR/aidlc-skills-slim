@@ -1112,3 +1112,143 @@
 
 ---
 
+## Commit and Push (user request)
+**Timestamp**: 2026-08-11T11:45:00Z
+**User Input**: "提交并推送代码"
+**AI Response**: "Loaded git-commit skill. Created 2 commits on test/sudoku and pushed to origin: (1) e76ec7a 'feat!: competitive score-race mode - protocol v2 and server rewrite' (10 files, BREAKING CHANGE noted: protocol v2, gameOver replaces playerLost/gameWon); (2) fa57435 'docs: round 5 inception/construction artifacts (competitive mode)' (41 files). Excluded untracked aidlc-workflows-cn/ (unrelated skill copy, not part of Round 5). Push: 1332a12..fa57435 test/sudoku -> test/sudoku."
+**Context**: Git operation - no stage transition; Functional Design (unit 3) awaiting approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Skill Load (user request)
+**Timestamp**: 2026-08-12T00:05:00Z
+**User Input**: "加载aidlc-workflows技能"
+**AI Response**: "Loaded aidlc-workflows SKILL.md. Confirmed position from aidlc-state.md/audit.md: CONSTRUCTION - Functional Design (unit 3: sudoku-online-client, Round 5) artifacts complete (v2 rewrite, plan 8/8 [x]), awaiting user approval before NFR Requirements (unit 3, minimal). Presented resume status. Welcome message not re-displayed (workflow already in progress)."
+**Context**: Session continuity - no stage transition; Functional Design (unit 3) awaiting approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## CONSTRUCTION - NFR Requirements (unit 3: sudoku-online-client, Round 5)
+**Timestamp**: 2026-08-12T00:10:00Z
+**User Input**: "继续"
+**AI Response**: "Per APG-01: '继续' = approve-continue. Functional Design (sudoku-online-client) APPROVED. NFR Requirements (minimal): no questions needed (tech stack fixed Round 4; v2 mirror/score changes add no new NFR dimension). Created sudoku-online-client-nfr-requirements-plan-round5.md (5 steps all [x]). Updated nfr-requirements.md with Round 5 banner (ownNotes mirror row, ScoreBoard event-driven rendering row, private-field misuse protection row per NFR-10/BR-C-15/CP-5, disconnect -> forfeit FR-38, FR-29->FR-40 references corrected) and tech-stack-decisions.md (zero new deps maintained, CP-1~CP-5, ScoreBoard/GameOverOverlay reuse Phaser GameObject system). Consistency check vs unit 3 FD v2 + frozen contract passed. Presenting standardized 2-option completion."
+**Context**: CONSTRUCTION - NFR Requirements (unit 3: sudoku-online-client, Round 5) - awaiting approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## CONSTRUCTION - Code Generation Part 1 Planning (unit 3: sudoku-online-client, Round 5)
+**Timestamp**: 2026-08-12T00:15:00Z
+**User Input**: "继续"
+**AI Response**: "Per APG-01: '继续' = approve-continue. NFR Requirements (unit 3) APPROVED. Loaded code-generation.md rules. Executed Part 1 Planning: created sudoku-online-client-code-generation-plan-round5.md (9 steps, all [ ] pending). Plan covers: Step 1 OnlineGameController v2 rewrite (MirrorState v2 + ownNotes + gameOverData, fixes known empty-board bug from v1 notes spread), Steps 2-3 new ScoreBoard + GameOverOverlay components, Steps 4-5 GameScene online path + ControlBar revision (local path untouched per FR-40), Steps 6-8 test artifacts (client-generators v2, 13 example scenarios, CP-1~CP-5 PBT), Step 9 full vitest + tsc verification + code summary. Story traceability: US-31~US-40 / FR-31~FR-40 / frozen contract component-methods-round5.md. Presenting plan for approval."
+**Context**: CONSTRUCTION - Code Generation Part 1 (unit 3: sudoku-online-client, Round 5) - plan awaiting approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## CONSTRUCTION - Code Generation Part 2 (unit 3: sudoku-online-client, Round 5)
+**Timestamp**: 2026-08-12T09:40:00Z
+**User Input**: "继续"
+**AI Response**: "Per APG-01: '继续' = approve-continue. Plan APPROVED. Executed Part 2 Generation: delegated Steps 1-5 (source) and Steps 6-8 (tests) to executor subagents with explicit 'write immediately' directives (both succeeded first try after variant:high fix). Main agent verified independently (git status, tsc, vitest). Step 9 by main agent: fixed 6 residual tsc errors (game-room test union narrowing + e2e-smoke v2 rewrite: note privacy, forfeit gameOver, no-refill, score/yourNotes assertions). Final verification: vitest 13 files 180/180 green (unit 3: 18 new; units 1-2 regression 63+99; FR-40 local regression gate passed), tsc 0 errors repo-wide, e2e-smoke 17/17 PASS. Created code-summary-round5.md. Plan 9/9 [x]. Presenting standardized 2-option completion."
+**Context**: CONSTRUCTION - Code Generation (unit 3: sudoku-online-client, Round 5) - awaiting approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## CONSTRUCTION - Build and Test (Round 5)
+**Timestamp**: 2026-08-12T09:50:00Z
+**User Input**: "继续"
+**AI Response**: "Per APG-01: '继续' = approve-continue. Code Generation (unit 3) APPROVED - all units complete. Executed Build and Test: ran npm run build (Success, 5.46s, gzip ~354KB), npm test (180/180), npm run test:e2e (17/17). Updated build-and-test artifacts: unit-test-instructions.md (136->180 tests, 13 files, 17 e2e assertions, per-unit breakdown), integration-test-instructions.md (v2 rewrite: 17 e2e assertions incl. note privacy/forfeit/no-refill; 7 manual competitive scenarios pending user confirmation: race basics, combo+overwrite, completed game-over, forfeit, connect-fail, controls+undo-refund, FR-40 local regression), build-and-test-summary.md (all automated pass, manual pending). build-instructions.md/performance-test-instructions.md unchanged (still accurate). Presenting completion message."
+**Context**: CONSTRUCTION - Build and Test complete (automated) - manual browser verification + approval pending before OPERATIONS
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Build and Test - Manual Verification Feedback (ScoreBoard layout fix)
+**Timestamp**: 2026-08-12T09:58:00Z
+**User Input**: "这个计分板都挤在一起了（附截图：自己/对方两行分数叠在撤销按钮行上）"
+**AI Response**: "Confirmed layout bug: ScoreBoard two-line stack at (4,34/56) overlapped ControlBar button row (y56~92). Fix: single-row dual-segment layout at top-center free zone (y=14, self right-aligned at centerX-8, opponent left-aligned at centerX+8) - between timer (left) and difficulty (right). Modified src/ui/score-board.ts (constructor layout) + src/scenes/game-scene.ts (instantiation width/2, 14). Verified: tsc 0 errors, client tests 18/18 green. DOC-01 same-interaction doc sync: frontend-components.md F8 (position/rendering, strikethrough v2-initial two-line note), domain-entities.md ScoreBoard.update row, business-rules.md BR-C-13 (two lines -> single row dual segment). Manual verification continues; gate unchanged."
+**Context**: CONSTRUCTION - Build and Test - manual verification in progress; ScoreBoard layout fixed; awaiting remaining scenario confirmations + approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Build and Test - Manual Verification Feedback (ControlBar icon buttons)
+**Timestamp**: 2026-08-12T10:12:00Z
+**User Input**: "有办法把这一排按钮做成图标按钮吗？鼠标移上去显示tips（附 ControlBar 截图）" + 问答答案（图标风格未答=采用推荐；适用范围="两种模式都改"）
+**AI Response**: "Change request handled per DOC-01 in same interaction. Rewrote src/ui/control-bar.ts: 6 text buttons replaced with vector-drawn icons (Phaser Graphics: undo/redo arc arrows, hint bulb, note pencil, reset circular arrow, new hamburger) + hover tooltip (dark bg white text above button, follows labels map; online 'new' tooltip follows newButtonLabel='菜单'). Note-mode active state redraws icon white on blue bg. Button size/position/callbacks unchanged. Verified: tsc 0 errors, vitest 180/180 green. DOC-01 sync: requirements.md FR-40 revision note (user-requested shared-UI visual change exception), sudoku-game frontend-components.md ControlBar section, sudoku-online-client frontend-components.md ControlBar section. Manual verification continues; gate unchanged."
+**Context**: CONSTRUCTION - Build and Test - manual verification in progress; ControlBar icon+tooltip applied to both modes; awaiting remaining scenario confirmations + approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Process Q&A: Executor UI-Code Rule Assessment
+**Timestamp**: 2026-08-12T10:20:00Z
+**User Input**: "之前我担心deepseek-v4-flash模型的前端审美不好，所以不允许executor智能体编写前端和客户端界面代码，你觉得合适吗？还是你觉得只要告诉flash代码怎么写，它就能写出跟你一致的代码？如实告诉我" followed by "算了不改了"
+**AI Response**: "Honest assessment given: rule partially justified but not for 'aesthetics' reasons - executor's two failures were non-UI tasks (reasoning budget, fixed via variant:high); its ScoreBoard/GameOverOverlay passed first try. Real UI-specific weakness observed: spatial layout reasoning (ScoreBoard placed per literal spec without computing ControlBar pixel boxes - caused overlap bug user caught). Key point: UI verification bottleneck is visual review, not who writes code. Recommendation offered: change AGENTS.md rule from 'no UI delegation' to 'UI delegatable with pixel-exact layout spec (coords/sizes/collision constraints); new-component layout decisions stay with main agent'. User declined ('算了不改了') - no rule change; existing AGENTS.md rule 4 (UI excluded from executor) remains."
+**Context**: Process Q&A - no rule change; Build and Test manual verification still pending
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Build and Test - Manual Verification Feedback (ControlBar icon revert)
+**Timestamp**: 2026-08-12T10:25:00Z
+**User Input**: "把按钮的样式回滚回去吧。你这带图标的按钮还没以前文字按钮好看呢"
+**AI Response**: "Reverted src/ui/control-bar.ts to text-button version (unit 3 state: mistakes counter removal preserved, only icon+tooltip rolled back). Verified: tsc 0 errors, vitest 13 files 180/180 green; git diff vs last commit confirms only unit-3 intended changes remain (3+/7-). DOC-01 sync: requirements.md FR-40 annotation updated (icon trial + same-day revert recorded, FR-40 back to no-exception), sudoku-game frontend-components.md ControlBar (trial/revert note), sudoku-online-client frontend-components.md (icon line struck through). ScoreBoard single-row layout fix unaffected. Manual verification continues; gate unchanged."
+**Context**: CONSTRUCTION - Build and Test - manual verification in progress; ControlBar reverted to text buttons; awaiting remaining scenario confirmations + approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Build and Test - Manual Verification Bug Fix (clearedNotes granularity, protocol amendment v2.1)
+**Timestamp**: 2026-08-12T10:50:00Z
+**User Input**: "发现bug。我在第一行第一列和第一行第二列，填入笔记数字5和6. 然后我在第一行第8列填入数字6。第一行的笔记5和6都被清除了，应该只清除笔记6的。"
+**AI Response**: "Root cause: protocol-level granularity flaw, two coupled defects: (1) clearedNotes: number[] (cell indexes) - client deleted ENTIRE cell note sets per BR-C-15, so filling 6 wiped {5,6} at the cell; (2) undone used same field for note RESTORE but client always deleted - undo note-restore never worked client-side. Fixed via protocol amendment v2.1 (Round 4 cellIndex amendment precedent): clearedNotes -> ClearedNote[] ({index,value} entries) in shared/protocol.ts (3 union members + isClearedNoteArray validator, removed dead isIndexArray); server game-room.ts 3 construction sites entry-ized (fill per-player entries, undo restored entries incl. note-op {cellIndex, record.op.value}, redo cleared entries); client online-game-controller.ts per-result semantics (correct/redone remove digit, undone restore digit with empty-cell guard matching CP-1 invariant). Tests: generators.ts + client-generators.ts arb entry-ized, protocol.test/game-room.test (scenario 10 toContainEqual + NEW 10b user-regression {5,6}->keep 5)/game-room.pbt/online-game-controller.test (scenario 5 rewritten + NEW 5b undo-restore)/pbt CP-1 replay per-result. CP-1 first failed on generator-produced invalid undone restores at filled cells - fixed with mirrored empty-cell guard in controller+reference. Verified: vitest 13 files 182/182 (+2 new), tsc 0 errors, e2e 17/17. DOC-01 sync: component-methods-round5.md (frozen contract amended), shared-protocol FD (domain-entities, BR-P-12), sudoku-server FD (game-logic, BR-S-11) + code summary, sudoku-online-client FD (BR-C-15, business-logic-model, testable-properties) + code summary."
+**Context**: CONSTRUCTION - Build and Test - manual verification in progress; clearedNotes v2.1 amendment applied; awaiting remaining scenario confirmations + approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Process Q&A: Bug Attribution for clearedNotes Defect
+**Timestamp**: 2026-08-12T10:55:00Z
+**User Input**: "这个bug是不是executor智能体编写的代码引起的？"
+**AI Response**: "Honest attribution: NO - root cause is in main-agent-authored design specs, executor faithfully implemented a wrong spec. Chain: (1) frozen contract component-methods-round5.md (main agent, Application Design) defined clearedNotes as number[] (cell indexes) AND conflated remove/restore semantics in one field; (2) client FD BR-C-15 (main agent) literally specified whole-cell deletion; (3) executor's protocol/server/client code matched spec exactly; tests green because CP-1 oracle (also main-agent spec) encoded the same wrong semantics - wrong oracle means automation cannot catch it, only real play could. Irony noted: server internal records were already {index,value} entries; the contract downgraded the information. Lesson recorded: protocol field design must be reviewed at 'minimum information granularity the consumer needs', especially when one field carries multiple semantics."
+**Context**: Process Q&A - no stage transition; Build and Test manual verification still pending
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Build and Test - Manual Verification Bug Fix (NumberPad completed-digit counting)
+**Timestamp**: 2026-08-12T11:05:00Z
+**User Input**: "出现一个bug，这里界面显示6还可以填，但实际上棋盘上的6都已经填完了（附截图：数字 6 按钮可用，棋盘 9 个正确 6 + r7c6 一个红色错填 6）"
+**AI Response**: "Root cause: game-scene.ts renderOnline completedDigits logic 'placed===9 && !hasWrong' counted wrong-filled cells in placed - with 9 correct + 1 wrong sixes, placed=10≠9 so digit never disabled. Fixed: count only non-wrong placements (board[i]===d && !wrongCells.has(i)), disable at 9 (online non-wrong = server-verified correct). Local mode logic (solution comparison) unchanged per FR-40. Verified: tsc 0 errors, vitest 13 files 182/182 green (first run showed truncated 173 read mid-execution; rerun confirmed full pass). DOC-01 sync: code-summary-round5.md amendment note."
+**Context**: CONSTRUCTION - Build and Test - manual verification in progress; NumberPad counting fixed; awaiting remaining scenario confirmations + approval
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Build and Test - Manual Verification Confirmed
+**Timestamp**: 2026-08-12T11:10:00Z
+**User Input**: "都已验证完毕，没问题了"
+**AI Response**: "Per APG-01: status report, NOT an approval/continuation word. Manual browser verification confirmed complete by user. Updated artifacts same-interaction: integration-test-instructions.md (execution status: 7 scenarios all pass + 3 bugs found & fixed during verification noted), build-and-test-summary.md (unit tests 182, Manual Tests=Pass, Overall Ready for Operations=Yes pending approval), aidlc-state.md (Build and Test line). Presenting Build and Test completion question and awaiting explicit approval (批准/同意 or 继续/下一步) before OPERATIONS."
+**Context**: CONSTRUCTION - Build and Test complete - awaiting explicit approval to proceed to OPERATIONS phase
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+

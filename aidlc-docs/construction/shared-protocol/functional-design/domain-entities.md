@@ -59,7 +59,7 @@
 | completedUnits | 条件 | CompletedUnit[] | 仅 result=correct 时出现（可为空数组） |
 | scores | 公共 | Record<PlayerId, number> | 双方最新总分（连击计数不下发） |
 | notes | **私有** | number[] | 仅 result=note：该格自己的笔记全集（仅发发起者） |
-| clearedNotes | **私有** | number[] | 自己被联动清除/恢复笔记的格索引；仅出现在归属者副本 |
+| clearedNotes | **私有** | ClearedNote[]（v2.1 修正案：由 number[] 改为 {index, value} 条目数组） | 自己被联动清除（correct/redone）/恢复（undone）笔记的格+数字条目；仅出现在归属者副本 |
 
 - **note op 的 opApplied 仅发发起者**（对方收不到任何事件）
 - 字段出席矩阵详见 business-rules.md BR-P-12

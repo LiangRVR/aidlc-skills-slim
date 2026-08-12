@@ -60,7 +60,7 @@ BoardView <── BoardSnapshot（owners + 自己私有笔记）
 
 | 成员 | 说明 |
 |---|---|
-| update(scores: Record\<PlayerId, number\>, you: PlayerId): void | 渲染双方分数两行（自己/对方）；随 opApplied.scores 即时更新 |
+| update(scores: Record\<PlayerId, number\>, you: PlayerId): void | 渲染双方分数（单行双段：自己/对方，顶部中央）；随 opApplied.scores 即时更新 |
 | 可见性 | 仅联机模式挂载（FR-40 本地零改动）；非交互元素 |
 
 ## WebSocketClient（F3，无契约变更）

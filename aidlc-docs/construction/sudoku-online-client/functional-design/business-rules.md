@@ -16,9 +16,9 @@
 | BR-C-09 | 数字着色：自己=蓝、对方=黑、错填=红（覆盖归属色）、预填=既有样式 | FR-20 / F7 | 沿用 |
 | BR-C-10 | PlayerCountBadge：右上角常驻"在线 n/2"；joined/playerJoined/playerLeft 时更新；仅线上模式渲染 | FR-30 | 沿用 |
 | BR-C-11 | JoinToast 非阻塞：~3 秒自动淡出 | FR-19 | 沿用 |
-| BR-C-13 | **ScoreBoard（F8）**：双方分数两行（自己/对方），随每条 opApplied.scores 即时更新；仅线上模式挂载；分数来源严格为服务端消息（不本地计算） | FR-31 / Q2=A | **v2 新增** |
+| BR-C-13 | **ScoreBoard（F8）**：双方分数单行双段（自己/对方，顶部中央），随每条 opApplied.scores 即时更新；仅线上模式挂载；分数来源严格为服务端消息（不本地计算） | FR-31 / Q2=A | **v2 新增** |
 | BR-C-14 | **终局覆盖层**：gameOver → 展示双方最终分数、胜/负/平局（winnerId 与自己比对；null=平局）、用时 elapsedSeconds；reason='forfeit' 时可区分"对方离开"文案；**取代 v1 胜利覆盖层与旁观覆盖层** | FR-36~39 | **v2 新增** |
-| BR-C-15 | opApplied 私有字段（notes/clearedNotes）**只更新自己的 ownNotes 镜像**：notes → 整格替换该格笔记；clearedNotes → 移除这些格的笔记 | FR-34 | **v2 新增** |
+| BR-C-15 | opApplied 私有字段（notes/clearedNotes）**只更新自己的 ownNotes 镜像**：notes → 整格替换该格笔记；clearedNotes → **条目级**应用：correct/redone 移除该格该数字（同格其余笔记保留），undone 恢复该格该数字（仅空格，CP-1 不变量） | FR-34 | **v2 新增；v2.1 修正（格索引→{index,value} 条目，2026-08-12 用户回归发现）** |
 
 ## 会话与导航
 | 规则 | 内容 | 来源 | v2 状态 |

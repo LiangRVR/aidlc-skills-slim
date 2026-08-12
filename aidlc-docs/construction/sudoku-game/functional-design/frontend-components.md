@@ -33,8 +33,8 @@ GameScene (Phaser Scene)
 
 ## ControlBar
 
-- **按钮**：撤销 / 重做 / 提示 / 笔记切换 / 新游戏 / 重开
-- **状态显示**：计时（mm:ss）、错误计数（"错误 x/3"）
+- **按钮**：撤销 / 重做 / 提示 / 笔记切换 / 新游戏 / 重开（**【2026-08-12 记录】**Round 5 联调期曾应用户要求试行矢量图标按钮+悬停 tooltip，同日用户目验后回滚为文字按钮）
+- **状态显示**：计时（mm:ss）、错误计数（"错误 x/3"）（**注**：错误计数显示已在 Round 5 联机模式移除 FR-37，本地模式保留逻辑由 render 调用方传参决定）
 - **可用态**：undoStack 空 → 撤销禁用；redoStack 空 → 重做禁用（BR-20）；笔记按钮高亮反映 noteMode
 - **交互**：`onAction(action)` → GameController 对应方法；新游戏返回 MenuScene 难度选择
 
