@@ -141,6 +141,7 @@ finalize(reason: 'completed' | 'forfeit')
   公共部分（所有副本相同）：playerId, op, result, cellIndex?, cell?, completedUnits?, scores（全房最新总分）
   私有部分：
     r === 笔记归属者 → clearedNotes: r 自己被联动清除/恢复的 {格, 数字} 条目（v2.1：fill correct 时双方各自不同；undo/redo 仅发起者有；undone=恢复语义、correct/redone=移除语义）
+    v2.2 补充：note 记录的 undo/redo 不走 clearedNotes——发起者副本携带 `notes` 整格全集（toggle 方向极性修复）；fill 记录的 undo 恢复该格自身笔记（MoveRecord.cellNotesBefore 快照，M1）；过期记录（格已被他人覆盖）→ opRejected('stale-undo'/'stale-redo')，不广播（L1）
     note op → 仅装配发起者副本（含 notes 全集），不向对方发送
   经 ConnectionManager.send(r.playerId, 副本) 定向送达
 ```

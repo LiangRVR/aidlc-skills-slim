@@ -66,7 +66,7 @@ All methods are synchronous and run entirely in the browser's main thread.
 
 ### SudokuGenerator
 
-**Source**: `src/core/sudoku-generator.ts` (all methods static)
+**Source**: `shared/sudoku-generator.ts`（v2.2 迁移） (all methods static)
 
 | Method | Signature | Return | Description |
 |--------|-----------|--------|-------------|
@@ -74,7 +74,7 @@ All methods are synchronous and run entirely in the browser's main thread.
 
 ### SudokuSolver
 
-**Source**: `src/core/sudoku-solver.ts` (all methods static)
+**Source**: `shared/sudoku-solver.ts`（v2.2 迁移） (all methods static)
 
 | Method | Signature | Return | Description |
 |--------|-----------|--------|-------------|
@@ -84,7 +84,7 @@ All methods are synchronous and run entirely in the browser's main thread.
 
 ### RuleValidator
 
-**Source**: `src/core/rule-validator.ts` (all methods static)
+**Source**: `shared/rule-validator.ts`（v2.2 迁移） (all methods static)
 
 | Method | Signature | Return | Description |
 |--------|-----------|--------|-------------|

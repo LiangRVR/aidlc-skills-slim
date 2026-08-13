@@ -110,9 +110,12 @@
 - [ ] Functional Design (unit 3: sudoku-online-client) - EXECUTE - COMPLETED 2026-08-11T11:25:00Z (v2 rewrite), approved (approve-continue)
 - [ ] NFR Requirements (unit 3) - EXECUTE (minimal) - COMPLETED 2026-08-12T00:10:00Z, approved (approve-continue)
 - [ ] Code Generation (unit 3) - EXECUTE - COMPLETED 2026-08-12T09:40:00Z (180/180 tests green, tsc clean, e2e 17/17), approved (approve-continue)
-- [ ] Build and Test - EXECUTE - ARTIFACTS COMPLETE 2026-08-12T09:50:00Z; manual browser scenarios CONFIRMED PASS 2026-08-12T11:10:00Z (3 bugs found & fixed during verification), awaiting approval
+- [x] Build and Test - EXECUTE - COMPLETED 2026-08-12T09:50:00Z; manual browser scenarios CONFIRMED PASS 2026-08-12T11:10:00Z (3 bugs found & fixed during verification); APPROVED 2026-08-12T11:20:00Z
+
+### 🟡 OPERATIONS PHASE (Round 5)
+- [x] Operations - REACHED (placeholder phase; no deployment/monitoring workflows defined; AI-DLC workflow ends here) 2026-08-12T11:20:00Z
 
 ### Current Stage
-- **Stage**: CONSTRUCTION - Build and Test (Round 5)
-- **Pending**: user approval -> OPERATIONS
+- **Stage**: Round 5 (competitive score-race mode) WORKFLOW COMPLETE
+- **Post-completion**: full-project code review 2026-08-12; all findings fixed same-day (H1 note undo/redo polarity + M1 fill-undo own-notes + M2 cross-layer deps + L1 stale-undo reject + L2 forfeit send + L3 dead code; protocol amendment v2.2; 188/188 tests green, tsc clean, e2e 17/17); awaiting commit
 - **Unit sequence (Round 5)**: shared-protocol ✔ -> sudoku-server ✔ -> sudoku-online-client

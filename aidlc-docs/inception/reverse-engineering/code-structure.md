@@ -202,9 +202,9 @@ classDiagram
 - `src/core/event-bus.ts` — Publish/subscribe event bus (`on`, `off`, `emit`) using Map<string, Set<EventHandler>>; core-to-UI communication channel
 - `src/core/game-state.ts` — Game state machine: 81-cell board, notes (Set<number>[81]), selection, mistakes (0-3), status (playing/won/lost), undo/redo stacks, timer; implements fill/erase/toggleNote/undo/redo/applyHint/reset/tick; serialization via toSave/fromSave
 - `src/core/game-controller.ts` — Orchestration service: newGame (generate + clear old save), continueGame (restore from save), inputDigit (routes fill vs. note based on noteMode), erase/undo/redo/hint/reset forwarding, auto-save (every 5s + after each action)
-- `src/core/sudoku-generator.ts` — Puzzle generator: full random solution via backtracking with shuffled candidates; symmetric cell removal (i paired with 80-i); uniqueness verified via countSolutions(limit=2); 4 difficulty levels (easy 40-45, medium 32-39, hard 26-31, expert 22-25 givens)
-- `src/core/sudoku-solver.ts` — MRV backtracking solver: solve (returns solution or null), countSolutions (with early-termination limit), findHint (first empty cell's solution value)
-- `src/core/rule-validator.ts` — Stateless validation: conflictsAt (returns peer indices with same value in row/col/box), isCorrect (value equals solution), isComplete (all 81 cells match solution)
+- `shared/sudoku-generator.ts`（v2.2 迁移） — Puzzle generator: full random solution via backtracking with shuffled candidates; symmetric cell removal (i paired with 80-i); uniqueness verified via countSolutions(limit=2); 4 difficulty levels (easy 40-45, medium 32-39, hard 26-31, expert 22-25 givens)
+- `shared/sudoku-solver.ts`（v2.2 迁移） — MRV backtracking solver: solve (returns solution or null), countSolutions (with early-termination limit), findHint (first empty cell's solution value)
+- `shared/rule-validator.ts`（v2.2 迁移） — Stateless validation: conflictsAt (returns peer indices with same value in row/col/box), isCorrect (value equals solution), isComplete (all 81 cells match solution)
 
 **Persistence (src/persistence/):**
 - `src/persistence/save-manager.ts` — localStorage wrapper: save (JSON serialize), load (parse + structural validation of version, board length, notes structure, move fields, mistakes range, status/difficulty enums; returns null on failure), hasSave, clear; key: `sudoku-game-save`

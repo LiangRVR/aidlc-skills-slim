@@ -43,6 +43,13 @@
 - 新增测试：场景 5 重写（{5,6} 填 6 保留 5 回归）+ 场景 5b（undone 恢复）；CP-1 参考重放器同步条目语义
 - 另：ScoreBoard 布局修正（单行顶部中央，联调反馈）；ControlBar 图标按钮试行后同日回滚（保留文字按钮）
 
+## v2.2 修正案适配（2026-08-12，code review 发现）
+- **H1 适配**：undone/redone 携带 notes 时 ownNotes 整格替换（note 记录撤销/重做）；回归测试 5c
+- **M2 适配**：RuleValidator 等三个纯逻辑模块移至 shared/，import 路径更新（game-state/game-controller/game-scene + 5 个测试文件）
+- **L3 清理**：onVfxWrong 订阅/实现/退订、renderLocal 的 mistakes/maxMistakes 传参、MAX_MISTAKES import
+- CP-1 参考重放器同步 v2.2 语义；生成器 notes 仅空格约束
+- 验证：188/188 绿、tsc 0、build OK
+
 ## NumberPad 完成计数修正（2026-08-12，用户回归发现）
 - **缺陷**：renderOnline 的 completedDigits 判定 `placed===9 && !hasWrong`（placed 含错填格）——某数字 9 个正确 + 1 个错填时 placed=10≠9，按钮永不禁用
 - **修正**：只计非错填格 `board[i]===d && !wrongCells.has(i)`，达 9 即禁用（联机模式非 wrong 即服务端验证过的正确填入）；本地模式判定（solution 比对）不变

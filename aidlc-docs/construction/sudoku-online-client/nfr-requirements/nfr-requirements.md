@@ -32,7 +32,7 @@
 |---|---|
 | 测试框架 | Vitest + fast-check（沿用）；前端单测不启真实 ws（内存桩驱动 applyServerMessage） |
 | PBT | CP-1~CP-5 落实（testable-properties.md，CP-5 为 v2 新增）；生成器集中 tests/client-generators.ts |
-| 依赖边界 | `src/net` → `src/core`/`shared`/`src/ui` 单向无环；`src/` 与 `server/` 之间除 `shared/` 外不得互 import |
+| 依赖边界 | `src/net` → `src/core`/`shared`/`src/ui` 单向无环；`src/` 与 `server/` 之间除 `shared/` 外不得互 import（**v2.2 已落实**：共享类型与纯逻辑模块（rule-validator/sudoku-solver/sudoku-generator）已下沉 shared/，server/shared 对 src/ 零 import） |
 | 接口隔离 | GameScene 只依赖 IGameController；本地/联机差异封装在控制器内（FR-40 结构性保障） |
 
 ## 可用性 / 可访问性

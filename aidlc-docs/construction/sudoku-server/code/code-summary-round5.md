@@ -31,6 +31,16 @@ executor 实施时发现 FD 文档与冻结契约（component-methods-round5.md�
 - **修正**：协议 `clearedNotes` 改 `ClearedNote[]`（{index, value} 条目，含校验器 isClearedNoteArray）；服务端 fill/undo/redo 三处构造点条目化（undo/redo 含 note op 的 {cellIndex, record.op.value}）；语义：correct/redone=移除该数字、undone=恢复该数字
 - **回归测试**：game-room.test 10b（{5,6} 笔记填 6 保留 5）；场景 10 断言改 toContainEqual
 - 验证：182/182 绿（+2 新测试）、tsc 0、e2e 17/17
+
+## v2.2 修正案（2026-08-12，code review 发现）
+- **H1 note undo/redo 极性**：note 记录撤销/重做曾复用 clearedNotes 语义导致方向错误（加笔记→undo 客户端显示假笔记）——改为发起者副本携带 `notes` 整格全集（协议 undone/redone 变体新增可选 notes + 校验器；broadcastOpApplied 加 initiatorNotes）；回归测试 10c/10d
+- **M1 fill undo 自身笔记**：MoveRecord 新增 cellNotesBefore 快照，undo 恢复/redo 重清该格发起者自身笔记（消除与本地模式分歧）；回归测试 12b
+- **L1 过期 undo/redo**：格已被他人覆盖 → opRejected('stale-undo'/'stale-redo')，不再 pop 后广播空操作；回归测试 15
+- **L2 forfeit 无效发送**：removePlayer 先 delete 再 finalize（离开者不收 gameOver）；index.ts 发送前 readyState===OPEN 守卫
+- **M2 跨层依赖**：Difficulty/Puzzle/CellIndex/CellValue 下沉 `shared/types.ts`；rule-validator/sudoku-solver/sudoku-generator 移至 `shared/`；src/core/types.ts 改为 re-export；server/shared 不再 import src/（约束落实）
+- **L3 死代码**：EVENTS.VFX_WRONG/ONLINE_OPPONENT_LOST、onVfxWrong 订阅链、vfx getStreak()、ControlBarInfo mistakes/maxMistakes 及 renderLocal 传参
+- **测试盲区补齐**：erase 房间级计分（测试 16）；SP-3 strip 兼容私有 notes
+- 验证：188/188 绿（+6 新测试）、tsc 0、build OK、e2e 17/17
 - fill 判定顺序：given → 同值 no-op → 覆盖权限（对方正确格同值填回 'no-op'）
 - 过期 undo/redo 记录丢弃不入对面栈（BR-S-10"丢弃该记录"）
 - forfeit 的 gameOver 广播含离开者（移除前发送；断线场景发送自然失败无副作用）

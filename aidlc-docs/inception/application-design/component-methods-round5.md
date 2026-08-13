@@ -81,6 +81,8 @@ interface OpApplied {
   notes?: number[];                     // 私有：note op 后该格自己的笔记全集
   clearedNotes?: ClearedNote[];         // 私有：本次操作联动清除/恢复的、自己的笔记条目 {index, value}（v2.1 修正案 2026-08-12：由 number[] 格索引改为条目数组——格索引粒度导致整格笔记被误清）
   // correct/redone：这些 {格, 数字} 笔记被移除；undone：这些 {格, 数字} 笔记被恢复
+  notes?: number[];                     // v2.2 修正案（2026-08-12）：仅 undone/redone 且仅发起者副本——note 记录撤销/重做时该格笔记全集（整格替换语义，修复 toggle 方向极性缺陷 H1）
+  // v2.2 另：过期 undo/redo（记录对应格已被他人覆盖）→ opRejected('stale-undo'/'stale-redo')，不再广播空操作
 }
 ```
 

@@ -48,7 +48,7 @@
 | 规则 | 内容 |
 |---|---|
 | BR-P-11 | `yourNotes`：对象；键为 "0"-"80" 的整数字符串；值为合法笔记数组；不得含 value≠0 的格子的键（笔记只属空格）——**键越界/值非法即拒绝** |
-| BR-P-12 | opApplied 字段出席矩阵：`result='note'` → 必有 `notes`、必无 `cellIndex`/`cell`/`completedUnits`；`result='correct'` → 必有 `cellIndex`+`cell`+`completedUnits`；`result ∈ {wrong, erased, undone, redone}` → 必有 `cellIndex`+`cell`、必无 `completedUnits`；`clearedNotes` 任何 result 均可出席或缺席（出席则为合法 ClearedNote 数组——{index, value} 条目，v2.1 修正案由 number[] 格索引修订） |
+| BR-P-12 | opApplied 字段出席矩阵：`result='note'` → 必有 `notes`、必无 `cellIndex`/`cell`/`completedUnits`；`result='correct'` → 必有 `cellIndex`+`cell`+`completedUnits`；`result ∈ {wrong, erased, undone, redone}` → 必有 `cellIndex`+`cell`、必无 `completedUnits`；`clearedNotes` 任何 result 均可出席或缺席（出席则为合法 ClearedNote 数组——{index, value} 条目，v2.1 修正案由 number[] 格索引修订）；`notes` 仅 `note` 与 `undone`/`redone` 可出席（后者为 v2.2 修正案：note 记录撤销/重做时发起者该格笔记全集，出席则须为合法笔记数组） |
 | BR-P-13 | `scores`：对象，键为房间内合法 PlayerId（1-2 个），值为非负整数；空对象拒绝 |
 | BR-P-14 | opRejected reason 枚举（v2）：`'not-overwritable' \| 'no-op' \| 'nothing-to-undo' \| 'nothing-to-redo' \| 'game-over' \| 'invalid-op'`；**v1 的 'spectating' 已移除（FR-37）**；反序列化仅校验非空字符串（枚举为服务端语义约束，协议层不白名单化——与 v1 一致） |
 | BR-P-15 | `gameOver.reason='forfeit'` → `winnerId` 非 null；`reason='completed'` → winnerId 可为 null（平局） |

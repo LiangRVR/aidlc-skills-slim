@@ -29,9 +29,9 @@
 3. `src/core/event-bus.ts`
 4. `src/core/game-state.ts`
 5. `src/core/game-controller.ts`
-6. `src/core/sudoku-generator.ts`
-7. `src/core/sudoku-solver.ts`
-8. `src/core/rule-validator.ts`
+6. `shared/sudoku-generator.ts`（v2.2 迁移）
+7. `shared/sudoku-solver.ts`（v2.2 迁移）
+8. `shared/rule-validator.ts`（v2.2 迁移）
 9. `src/persistence/save-manager.ts`
 10. `src/scenes/menu-scene.ts`
 11. `src/scenes/game-scene.ts`

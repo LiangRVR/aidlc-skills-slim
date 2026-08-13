@@ -44,6 +44,7 @@ PBT 框架：fast-check + Vitest（NFR-9/10）。不启动真实 ws——WebSock
 | 笔记私有 | result='note' 副本 → ownNotes[cellIndex]=notes；渲染快照 notes 同步 |
 | 笔记代清 | clearedNotes 条目只移除对应数字，同格其余笔记保留（v2.1 回归：填 6 不得清掉笔记 5） |
 | undo 笔记恢复 | undone 的 clearedNotes 条目把对应数字加回 ownNotes（v2.1 新增场景 5b） |
+| note undo/redo 整格替换 | undone/redone 携带 notes 全集 → ownNotes 整格替换；空数组 → 清空（v2.2 场景 5c，H1 回归） |
 | 错填覆盖 | 对方 wrong 格经自己 correct opApplied 后 owner=you、wrong=false |
 | gameOver completed 胜 | 覆盖层数据：winnerId=you→"你赢了"；scores/elapsedSeconds 透传；isReadOnly()=true |
 | gameOver completed 平局 | winnerId=null→"平局" |
