@@ -23,10 +23,6 @@ export class VfxManager {
     this.ensureTexture();
   }
 
-  getStreak(): number {
-    return this.streak;
-  }
-
   playCorrect(index: number, completedUnits: CompletedUnit[]): void {
     this.streak++;
     const tier = this.tierOf(this.streak);

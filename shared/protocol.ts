@@ -1,4 +1,4 @@
-import type { Difficulty } from '../src/core/types';
+import type { Difficulty } from './types';
 
 export const PROTOCOL_VERSION = 2;
 
@@ -84,6 +84,8 @@ export type ServerMessage =
             cell: CellEntry;
             scores: Record<PlayerId, number>;
             clearedNotes?: ClearedNote[];
+            /** v2.2：note 记录的 undo/redo 时携带发起者该格笔记全集（整格替换语义，修复 toggle 方向极性） */
+            notes?: number[];
           };
     }
   | { type: 'opRejected'; payload: { playerId: PlayerId; reason: string } }
@@ -268,7 +270,8 @@ function isOpAppliedPayload(p: unknown): boolean {
         isIndex(p.cellIndex) &&
         hasKey(p, 'cell') &&
         isCellEntry(p.cell) &&
-        !hasKey(p, 'completedUnits')
+        !hasKey(p, 'completedUnits') &&
+        (!hasKey(p, 'notes') || isNotes(p.notes))
       );
     default:
       return false;

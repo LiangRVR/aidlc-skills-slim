@@ -187,7 +187,7 @@ describe('SP-3 广播完整性与个性化', () => {
           }
           const strip = (m: ServerMessage): unknown => {
             if (m.type !== 'opApplied') return m;
-            const { clearedNotes, ...rest } = m.payload;
+            const { clearedNotes, notes, ...rest } = m.payload as Record<string, unknown>;
             return { type: m.type, payload: rest };
           };
           for (const c of copies.slice(1)) {
@@ -200,7 +200,10 @@ describe('SP-3 广播完整性与个性化', () => {
             if (result === 'wrong' || result === 'erased') {
               expect(cleared).toBeUndefined();
             } else if (result === 'undone' || result === 'redone') {
-              if (c.payload.playerId !== actor) expect(cleared).toBeUndefined();
+              if (c.payload.playerId !== actor) {
+                expect(cleared).toBeUndefined();
+                expect(c.payload.notes).toBeUndefined();
+              }
             } else if (result === 'correct') {
               if (cleared) {
                 const peers = new Set(peerIndices(c.payload.cellIndex));

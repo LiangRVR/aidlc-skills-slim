@@ -254,6 +254,7 @@ const arbOpAppliedOther = (
       cell: arbCellEntry,
       scores: arbScoresFor([you, opponent]),
       clearedNotes: fc.option(arbClearedNotes, { nil: undefined }),
+      notes: fc.option(arbNotes, { nil: undefined }),
     })
     .map((p) => {
       const payload: {
@@ -264,8 +265,10 @@ const arbOpAppliedOther = (
         cell: CellEntry;
         scores: Record<PlayerId, number>;
         clearedNotes?: ClearedNote[];
+        notes?: number[];
       } = { ...p };
       if (payload.clearedNotes === undefined) delete payload.clearedNotes;
+      if (payload.notes === undefined || payload.cell.value !== 0) delete payload.notes;
       return { type: 'opApplied' as const, payload };
     });
 

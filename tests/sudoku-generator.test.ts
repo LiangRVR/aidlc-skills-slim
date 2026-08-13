@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SudokuGenerator } from '../src/core/sudoku-generator';
-import { SudokuSolver } from '../src/core/sudoku-solver';
+import { SudokuGenerator } from '../shared/sudoku-generator';
+import { SudokuSolver } from '../shared/sudoku-solver';
 import type { Difficulty, Puzzle } from '../src/core/types';
 
 const GIVEN_RANGES: Record<Difficulty, [number, number]> = {

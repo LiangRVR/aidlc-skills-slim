@@ -162,24 +162,27 @@ const arbOpAppliedCellResult: fc.Arbitrary<ServerMessage> = fc
     result: fc.constantFrom('wrong', 'erased', 'undone', 'redone') as fc.Arbitrary<
       'wrong' | 'erased' | 'undone' | 'redone'
     >,
-    scores: arbScores,
-    cellIndex: arbIndex,
-    cell: arbCellEntry,
-    clearedNotes: fc.option(arbClearedNotes, { nil: undefined }),
-  })
-  .map((p) => {
-    const payload: {
-      playerId: PlayerId;
-      op: Op;
-      result: 'wrong' | 'erased' | 'undone' | 'redone';
-      scores: Record<PlayerId, number>;
-      cellIndex: number;
-      cell: CellEntry;
-      clearedNotes?: ClearedNote[];
-    } = { ...p };
-    if (payload.clearedNotes === undefined) delete payload.clearedNotes;
-    return { type: 'opApplied' as const, payload };
-  });
+      scores: arbScores,
+      cellIndex: arbIndex,
+      cell: arbCellEntry,
+      clearedNotes: fc.option(arbClearedNotes, { nil: undefined }),
+      notes: fc.option(arbNotes, { nil: undefined }),
+    })
+    .map((p) => {
+      const payload: {
+        playerId: PlayerId;
+        op: Op;
+        result: 'wrong' | 'erased' | 'undone' | 'redone';
+        scores: Record<PlayerId, number>;
+        cellIndex: number;
+        cell: CellEntry;
+        clearedNotes?: ClearedNote[];
+        notes?: number[];
+      } = { ...p };
+      if (payload.clearedNotes === undefined) delete payload.clearedNotes;
+      if (payload.notes === undefined) delete payload.notes;
+      return { type: 'opApplied' as const, payload };
+    });
 
 export const arbOpApplied: fc.Arbitrary<ServerMessage> = fc.oneof(
   arbOpAppliedNote,

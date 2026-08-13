@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventBus } from '../src/core/event-bus';
 import { GameState } from '../src/core/game-state';
-import { SudokuGenerator } from '../src/core/sudoku-generator';
+import { SudokuGenerator } from '../shared/sudoku-generator';
 import { SaveManager } from '../src/persistence/save-manager';
 import type { GameSave } from '../src/core/types';
 

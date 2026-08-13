@@ -17,7 +17,9 @@ const wss = new WebSocketServer({ port: PORT, host: '0.0.0.0' });
 
 wss.on('connection', (socket) => {
   const playerId = randomUUID();
-  connections.register(playerId, (msg) => socket.send(serialize(msg)));
+  connections.register(playerId, (msg) => {
+    if (socket.readyState === socket.OPEN) socket.send(serialize(msg));
+  });
   socket.on('message', (data) => {
     router.handleRaw(playerId, data.toString());
   });

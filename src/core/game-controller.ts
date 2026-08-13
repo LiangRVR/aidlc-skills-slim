@@ -1,6 +1,6 @@
 import { EventBus } from './event-bus';
 import { GameState } from './game-state';
-import { SudokuGenerator } from './sudoku-generator';
+import { SudokuGenerator } from '../../shared/sudoku-generator';
 import { SaveManager } from '../persistence/save-manager';
 import type { CellIndex, CellValue, Difficulty, GameSave } from './types';
 

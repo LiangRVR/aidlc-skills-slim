@@ -1,5 +1,5 @@
-import type { Puzzle, Difficulty } from '../src/core/types';
-import { RuleValidator } from '../src/core/rule-validator';
+import type { Puzzle, Difficulty } from '../shared/types';
+import { RuleValidator } from '../shared/rule-validator';
 import type {
   CellEntry,
   CompletedUnit,
@@ -25,6 +25,8 @@ export interface MoveRecord {
   before: CellEntry;
   after: CellEntry;
   clearedNotes: { index: number; value: number }[];
+  /** v2.2：fill 时该格发起者自身笔记快照（undo 恢复 / redo 重清，M1） */
+  cellNotesBefore: number[];
   scoreDelta: number;
 }
 
@@ -118,18 +120,16 @@ export class GameRoom {
 
   removePlayer(playerId: PlayerId): void {
     if (!this.players.has(playerId)) return;
+    this.players.delete(playerId);
+    this.scores.delete(playerId);
+    this.notesByPlayer.delete(playerId);
     if (this.status === 'playing' && this.hadTwoPlayers) {
       this.finalize('forfeit', playerId);
     } else if (this.status === 'won') {
       for (const p of this.players.values()) {
-        if (p.playerId !== playerId) {
-          this.send(p.playerId, { type: 'playerLeft', payload: { playerId } });
-        }
+        this.send(p.playerId, { type: 'playerLeft', payload: { playerId } });
       }
     }
-    this.players.delete(playerId);
-    this.scores.delete(playerId);
-    this.notesByPlayer.delete(playerId);
   }
 
   handleOp(playerId: PlayerId, op: Op): void {
@@ -195,6 +195,7 @@ export class GameRoom {
     }
     const before = this.cloneCell(cell);
     if (RuleValidator.isCorrect(this.solution, op.index, op.value)) {
+      const cellNotesBefore = this.sortedNotes(playerId, op.index);
       const clearedByPlayer = new Map<PlayerId, { index: number; value: number }[]>();
       const clearedEntries: { index: number; value: number }[] = [];
       for (const pid of this.players.keys()) {
@@ -227,6 +228,7 @@ export class GameRoom {
         before,
         after,
         clearedNotes: clearedEntries,
+        cellNotesBefore,
         scoreDelta: delta,
       });
       const completedUnits = this.completedUnitsFor(op.index);
@@ -258,6 +260,7 @@ export class GameRoom {
         before,
         after,
         clearedNotes: [],
+        cellNotesBefore: [],
         scoreDelta: delta,
       });
       this.broadcastOpApplied(playerId, op, {
@@ -289,6 +292,7 @@ export class GameRoom {
       before,
       after,
       clearedNotes: [],
+      cellNotesBefore: [],
       scoreDelta: delta,
     });
     this.broadcastOpApplied(playerId, op, {
@@ -315,9 +319,10 @@ export class GameRoom {
       before,
       after,
       clearedNotes: [],
+      cellNotesBefore: [],
       scoreDelta: 0,
     });
-    const notes = Array.from(this.notesByPlayer.get(playerId)?.get(op.index) ?? []).sort((a, b) => a - b);
+    const notes = this.sortedNotes(playerId, op.index);
     this.send(playerId, {
       type: 'opApplied',
       payload: { playerId, op, result: 'note', scores: this.scoresSnapshot(), notes },
@@ -331,35 +336,47 @@ export class GameRoom {
       this.reject(playerId, 'nothing-to-undo');
       return;
     }
+    if (!this.cellsEqual(this.cells[record.cellIndex], record.after)) {
+      this.reject(playerId, 'stale-undo');
+      return;
+    }
     const restored: { index: number; value: number }[] = [];
-    if (this.cellsEqual(this.cells[record.cellIndex], record.after)) {
-      if (record.op.kind === 'note') {
-        if (this.cells[record.cellIndex].value === 0) {
-          this.toggleNote(playerId, record.cellIndex, record.op.value);
-          restored.push({ index: record.cellIndex, value: record.op.value });
-        }
-      } else if (record.op.kind === 'fill') {
-        this.cells[record.cellIndex] = this.cloneCell(record.before);
-        for (const entry of record.clearedNotes) {
-          if (entry.index === record.cellIndex) continue;
-          if (this.cells[entry.index].value === 0 && !this.hasNote(playerId, entry.index, entry.value)) {
-            this.addNote(playerId, entry.index, entry.value);
-            restored.push({ index: entry.index, value: entry.value });
+    let initiatorNotes: number[] | undefined;
+    if (record.op.kind === 'note') {
+      if (this.cells[record.cellIndex].value === 0) {
+        this.toggleNote(playerId, record.cellIndex, record.op.value);
+        initiatorNotes = this.sortedNotes(playerId, record.cellIndex);
+      }
+    } else if (record.op.kind === 'fill') {
+      this.cells[record.cellIndex] = this.cloneCell(record.before);
+      if (this.cells[record.cellIndex].value === 0) {
+        for (const value of record.cellNotesBefore) {
+          if (!this.hasNote(playerId, record.cellIndex, value)) {
+            this.addNote(playerId, record.cellIndex, value);
+            restored.push({ index: record.cellIndex, value });
           }
         }
-      } else {
-        this.cells[record.cellIndex] = this.cloneCell(record.before);
       }
-      const { next } = applyUndoFill(this.scores.get(playerId)!, record.scoreDelta);
-      this.scores.set(playerId, next);
-      player.redoStack.push(record);
+      for (const entry of record.clearedNotes) {
+        if (entry.index === record.cellIndex) continue;
+        if (this.cells[entry.index].value === 0 && !this.hasNote(playerId, entry.index, entry.value)) {
+          this.addNote(playerId, entry.index, entry.value);
+          restored.push({ index: entry.index, value: entry.value });
+        }
+      }
+    } else {
+      this.cells[record.cellIndex] = this.cloneCell(record.before);
     }
+    const { next } = applyUndoFill(this.scores.get(playerId)!, record.scoreDelta);
+    this.scores.set(playerId, next);
+    player.redoStack.push(record);
     this.broadcastOpApplied(playerId, { kind: 'undo' }, {
       result: 'undone',
       cellIndex: record.cellIndex,
       cell: this.cloneCell(this.cells[record.cellIndex]),
       scores: this.scoresSnapshot(),
       clearedByPlayer: restored.length > 0 ? new Map([[playerId, restored]]) : new Map(),
+      initiatorNotes,
     });
   }
 
@@ -370,35 +387,45 @@ export class GameRoom {
       this.reject(playerId, 'nothing-to-redo');
       return;
     }
-    const cleared: { index: number; value: number }[] = [];
-    if (this.cellsEqual(this.cells[record.cellIndex], record.before)) {
-      if (record.op.kind === 'note') {
-        if (this.cells[record.cellIndex].value === 0) {
-          this.toggleNote(playerId, record.cellIndex, record.op.value);
-          cleared.push({ index: record.cellIndex, value: record.op.value });
-        }
-      } else if (record.op.kind === 'fill') {
-        this.cells[record.cellIndex] = this.cloneCell(record.after);
-        for (const entry of record.clearedNotes) {
-          if (entry.index === record.cellIndex) continue;
-          if (this.cells[entry.index].value === 0 && this.hasNote(playerId, entry.index, entry.value)) {
-            this.removeNote(playerId, entry.index, entry.value);
-            cleared.push({ index: entry.index, value: entry.value });
-          }
-        }
-      } else {
-        this.cells[record.cellIndex] = this.cloneCell(record.after);
-      }
-      const { next } = applyRedoFill(this.scores.get(playerId)!, record.scoreDelta);
-      this.scores.set(playerId, next);
-      player.undoStack.push(record);
+    if (!this.cellsEqual(this.cells[record.cellIndex], record.before)) {
+      this.reject(playerId, 'stale-redo');
+      return;
     }
+    const cleared: { index: number; value: number }[] = [];
+    let initiatorNotes: number[] | undefined;
+    if (record.op.kind === 'note') {
+      if (this.cells[record.cellIndex].value === 0) {
+        this.toggleNote(playerId, record.cellIndex, record.op.value);
+        initiatorNotes = this.sortedNotes(playerId, record.cellIndex);
+      }
+    } else if (record.op.kind === 'fill') {
+      this.cells[record.cellIndex] = this.cloneCell(record.after);
+      for (const value of record.cellNotesBefore) {
+        if (this.hasNote(playerId, record.cellIndex, value)) {
+          this.removeNote(playerId, record.cellIndex, value);
+          cleared.push({ index: record.cellIndex, value });
+        }
+      }
+      for (const entry of record.clearedNotes) {
+        if (entry.index === record.cellIndex) continue;
+        if (this.cells[entry.index].value === 0 && this.hasNote(playerId, entry.index, entry.value)) {
+          this.removeNote(playerId, entry.index, entry.value);
+          cleared.push({ index: entry.index, value: entry.value });
+        }
+      }
+    } else {
+      this.cells[record.cellIndex] = this.cloneCell(record.after);
+    }
+    const { next } = applyRedoFill(this.scores.get(playerId)!, record.scoreDelta);
+    this.scores.set(playerId, next);
+    player.undoStack.push(record);
     this.broadcastOpApplied(playerId, { kind: 'redo' }, {
       result: 'redone',
       cellIndex: record.cellIndex,
       cell: this.cloneCell(this.cells[record.cellIndex]),
       scores: this.scoresSnapshot(),
       clearedByPlayer: cleared.length > 0 ? new Map([[playerId, cleared]]) : new Map(),
+      initiatorNotes,
     });
   }
 
@@ -412,6 +439,8 @@ export class GameRoom {
       completedUnits?: CompletedUnit[];
       scores: Record<PlayerId, number>;
       clearedByPlayer: Map<PlayerId, { index: number; value: number }[]>;
+      /** v2.2：note 记录 undo/redo 时发起者该格笔记全集（整格替换，仅下发发起者） */
+      initiatorNotes?: number[];
     },
   ): void {
     for (const p of this.players.values()) {
@@ -429,6 +458,9 @@ export class GameRoom {
       const cleared = common.clearedByPlayer.get(p.playerId);
       if (cleared !== undefined && cleared.length > 0) {
         payload.clearedNotes = cleared;
+      }
+      if (common.initiatorNotes !== undefined && p.playerId === playerId) {
+        payload.notes = common.initiatorNotes;
       }
       this.send(p.playerId, { type: 'opApplied', payload } as ServerMessage);
     }
@@ -487,6 +519,10 @@ export class GameRoom {
 
   private hasNote(playerId: PlayerId, index: number, value: number): boolean {
     return this.notesByPlayer.get(playerId)?.get(index)?.has(value) ?? false;
+  }
+
+  private sortedNotes(playerId: PlayerId, index: number): number[] {
+    return Array.from(this.notesByPlayer.get(playerId)?.get(index) ?? []).sort((a, b) => a - b);
   }
 
   private addNote(playerId: PlayerId, index: number, value: number): void {

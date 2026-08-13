@@ -219,6 +219,11 @@ export class OnlineGameController implements IGameController {
           // 公共部分：应用格子变化
           mirror.cells[p.cellIndex] = { ...p.cell };
           if (p.cell.value !== 0) mirror.ownNotes.delete(p.cellIndex);
+          // 私有部分（v2.2）：note 记录的 undo/redo → 整格替换自己的笔记
+          if ((p.result === 'undone' || p.result === 'redone') && p.notes !== undefined) {
+            if (p.notes.length === 0) mirror.ownNotes.delete(p.cellIndex);
+            else mirror.ownNotes.set(p.cellIndex, new Set(p.notes));
+          }
         }
         // 私有部分：clearedNotes 条目化——correct/redone 移除该数字；undone 恢复该数字（BR-C-15 v2.1）
         if (p.clearedNotes) {

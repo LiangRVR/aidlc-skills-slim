@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { IGameController } from '../core/game-controller';
-import { RuleValidator } from '../core/rule-validator';
-import { EVENTS, MAX_MISTAKES, type Difficulty } from '../core/types';
+import { RuleValidator } from '../../shared/rule-validator';
+import { EVENTS, type Difficulty } from '../core/types';
 import type { OnlineGameController } from '../net/online-game-controller';
 import { ONLINE_SCORES_EVENT } from '../net/online-game-controller';
 import { BoardView, BOARD_SIZE, type BoardSnapshot } from '../ui/board-view';
@@ -96,7 +96,6 @@ export class GameScene extends Phaser.Scene {
     bus.on(EVENTS.GAME_LOST, this.onLost);
     if (this.online) {
       bus.on(EVENTS.VFX_CORRECT, this.onVfxCorrect);
-      bus.on(EVENTS.VFX_WRONG, this.onVfxWrong);
       bus.on(EVENTS.CONNECTION_LOST, this.onConnectionLost);
       bus.on(EVENTS.ONLINE_PLAYER_JOINED, this.onPlayerJoined);
       bus.on(EVENTS.ONLINE_PLAYER_LEFT, this.onPlayerLeft);
@@ -188,8 +187,6 @@ export class GameScene extends Phaser.Scene {
     this.numberPad.setNoteMode(state.getNoteMode());
     this.controlBar.render({
       elapsedSeconds: state.getElapsedSeconds(),
-      mistakes: state.getMistakes(),
-      maxMistakes: MAX_MISTAKES,
       canUndo: state.canUndo(),
       canRedo: state.canRedo(),
       noteMode: state.getNoteMode(),
@@ -282,11 +279,6 @@ export class GameScene extends Phaser.Scene {
     this.vfx.playCorrect(data.index, data.completedUnits);
   };
 
-  private readonly onVfxWrong = (payload?: unknown): void => {
-    const data = payload as { index: number };
-    this.vfx.playWrong(data.index);
-  };
-
   private readonly onConnectionLost = (): void => {
     this.overlay.show('连接已断开', '', '返回主菜单', () => this.leaveAndMenu());
   };
@@ -318,7 +310,6 @@ export class GameScene extends Phaser.Scene {
     bus.off(EVENTS.GAME_WON, this.onWon);
     bus.off(EVENTS.GAME_LOST, this.onLost);
     bus.off(EVENTS.VFX_CORRECT, this.onVfxCorrect);
-    bus.off(EVENTS.VFX_WRONG, this.onVfxWrong);
     bus.off(EVENTS.CONNECTION_LOST, this.onConnectionLost);
     bus.off(EVENTS.ONLINE_PLAYER_JOINED, this.onPlayerJoined);
     bus.off(EVENTS.ONLINE_PLAYER_LEFT, this.onPlayerLeft);

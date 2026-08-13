@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { EventBus } from '../src/core/event-bus';
 import { GameState } from '../src/core/game-state';
-import { SudokuGenerator } from '../src/core/sudoku-generator';
+import { SudokuGenerator } from '../shared/sudoku-generator';
 import { EVENTS, MAX_MISTAKES } from '../src/core/types';
 import type { CellIndex, CellValue, GameSave, Puzzle } from '../src/core/types';
 

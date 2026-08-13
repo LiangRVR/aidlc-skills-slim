@@ -216,6 +216,97 @@ describe('GameRoom v2 example-based scenarios', () => {
     expect(room.snapshotFor('A').yourNotes[peer]).toEqual([w]);
   });
 
+  it('10c. note undo/redo 极性（H1 回归）：加笔记→undo 消失→redo 回来；payload 带整格 notes 且仅发起者', () => {
+    const { room, recorder } = makeRoom(['A', 'B']);
+    const target = empties[0];
+    room.handleOp('A', { kind: 'note', index: target, value: 5 });
+    expect(room.snapshotFor('A').yourNotes[target]).toEqual([5]);
+    recorder.clear();
+    room.handleOp('A', { kind: 'undo' });
+    expect(room.snapshotFor('A').yourNotes[target]).toBeUndefined();
+    let aMsgs = opsOf(recorder.messagesFor('A'), 'opApplied');
+    expect(aMsgs).toHaveLength(1);
+    if (aMsgs[0].type !== 'opApplied') return;
+    expect(aMsgs[0].payload.result).toBe('undone');
+    if (aMsgs[0].payload.result === 'undone') expect(aMsgs[0].payload.notes).toEqual([]);
+    expect(opsOf(recorder.messagesFor('B'), 'opApplied')).toHaveLength(1);
+    const bCopy = opsOf(recorder.messagesFor('B'), 'opApplied')[0];
+    if (bCopy.type === 'opApplied' && bCopy.payload.result === 'undone') {
+      expect(bCopy.payload.notes).toBeUndefined();
+    }
+    room.handleOp('A', { kind: 'redo' });
+    expect(room.snapshotFor('A').yourNotes[target]).toEqual([5]);
+    aMsgs = opsOf(recorder.messagesFor('A'), 'opApplied');
+    const redoMsg = aMsgs[aMsgs.length - 1];
+    if (redoMsg.type === 'opApplied' && redoMsg.payload.result === 'redone') {
+      expect(redoMsg.payload.notes).toEqual([5]);
+    }
+  });
+
+  it('10d. 删笔记→undo 恢复（H1 反向回归）', () => {
+    const { room } = makeRoom(['A', 'B']);
+    const target = empties[0];
+    room.handleOp('A', { kind: 'note', index: target, value: 5 });
+    room.handleOp('A', { kind: 'note', index: target, value: 5 });
+    expect(room.snapshotFor('A').yourNotes[target]).toBeUndefined();
+    room.handleOp('A', { kind: 'undo' });
+    expect(room.snapshotFor('A').yourNotes[target]).toEqual([5]);
+  });
+
+  it('12b. fill undo 恢复该格自身笔记（M1 回归）：fill 清掉的 ownNotes 在 undo 后回来、redo 再清', () => {
+    const { room } = makeRoom(['A', 'B']);
+    const target = empties[0];
+    const v = SOLUTION[target];
+    const w = v === 9 ? 1 : v + 1;
+    room.handleOp('A', { kind: 'note', index: target, value: v });
+    room.handleOp('A', { kind: 'note', index: target, value: w });
+    room.handleOp('A', { kind: 'fill', index: target, value: v });
+    expect(room.snapshotFor('A').yourNotes[target]).toBeUndefined();
+    room.handleOp('A', { kind: 'undo' });
+    expect(room.snapshotFor('A').yourNotes[target]).toEqual([v, w]);
+    room.handleOp('A', { kind: 'redo' });
+    expect(room.snapshotFor('A').yourNotes[target]).toBeUndefined();
+  });
+
+  it('15. 过期 undo 拒绝（L1 回归）：A 填错→B 覆盖→A undo → opRejected(stale-undo)、无 opApplied、棋盘不变', () => {
+    const { room, recorder } = makeRoom(['A', 'B']);
+    const target = empties[0];
+    room.handleOp('A', { kind: 'fill', index: target, value: wrongValue(target) });
+    room.handleOp('B', { kind: 'fill', index: target, value: SOLUTION[target] });
+    recorder.clear();
+    room.handleOp('A', { kind: 'undo' });
+    expect(opsOf(recorder.messagesFor('A'), 'opApplied')).toHaveLength(0);
+    expect(opsOf(recorder.messagesFor('B'), 'opApplied')).toHaveLength(0);
+    const rejected = opsOf(recorder.messagesFor('A'), 'opRejected');
+    expect(rejected).toHaveLength(1);
+    if (rejected[0].type === 'opRejected') expect(rejected[0].payload.reason).toBe('stale-undo');
+    expect(room.getCells()[target]).toMatchObject({ value: SOLUTION[target], owner: 'B', wrong: false });
+  });
+
+  it('16. erase 计分房间级（盲区补齐）：擦自己正确格 -100（下限 0）；擦自己错填格不扣', () => {
+    const { room, recorder } = makeRoom(['A', 'B']);
+    const t1 = empties[0];
+    room.handleOp('A', { kind: 'fill', index: t1, value: SOLUTION[t1] });
+    let applied = lastApplied(recorder, 'A');
+    if (applied.type === 'opApplied') expect(applied.payload.scores['A']).toBe(100);
+    room.handleOp('A', { kind: 'erase', index: t1 });
+    applied = lastApplied(recorder, 'A');
+    if (applied.type === 'opApplied') {
+      expect(applied.payload.result).toBe('erased');
+      expect(applied.payload.scores['A']).toBe(0);
+    }
+    const t2 = empties[1];
+    room.handleOp('B', { kind: 'fill', index: t2, value: wrongValue(t2) });
+    applied = lastApplied(recorder, 'B');
+    if (applied.type === 'opApplied') expect(applied.payload.scores['B']).toBe(0);
+    room.handleOp('B', { kind: 'erase', index: t2 });
+    applied = lastApplied(recorder, 'B');
+    if (applied.type === 'opApplied') {
+      expect(applied.payload.result).toBe('erased');
+      expect(applied.payload.scores['B']).toBe(0);
+    }
+  });
+
   it('11. undo 错填不返还：score 不变、格子恢复为空', () => {
     const { room, recorder } = makeRoom(['A']);
     room.handleOp('A', { kind: 'fill', index: empties[0], value: SOLUTION[empties[0]] });

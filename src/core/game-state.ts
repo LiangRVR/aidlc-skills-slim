@@ -1,6 +1,6 @@
 import { EventBus } from './event-bus';
-import { RuleValidator } from './rule-validator';
-import { SudokuSolver } from './sudoku-solver';
+import { RuleValidator } from '../../shared/rule-validator';
+import { SudokuSolver } from '../../shared/sudoku-solver';
 import {
   EVENTS,
   MAX_MISTAKES,

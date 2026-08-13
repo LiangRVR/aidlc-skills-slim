@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SudokuSolver } from '../src/core/sudoku-solver';
+import { SudokuSolver } from '../shared/sudoku-solver';
 
 const PUZZLE = '..9748...7.........2.1.9.....7...24..64.1.59..98...3.....8.3.2.........6...2759..';
 

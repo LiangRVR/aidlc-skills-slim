@@ -37,6 +37,10 @@ describe('CP-1 镜像一致性（Invariant）', () => {
           } else {
             cellsRef[p.cellIndex] = { ...p.cell };
             if (p.cell.value !== 0) notesRef.delete(p.cellIndex);
+            if ((p.result === 'undone' || p.result === 'redone') && p.notes !== undefined) {
+              if (p.notes.length === 0) notesRef.delete(p.cellIndex);
+              else notesRef.set(p.cellIndex, new Set(p.notes));
+            }
           }
           if (p.clearedNotes) {
             for (const entry of p.clearedNotes) {

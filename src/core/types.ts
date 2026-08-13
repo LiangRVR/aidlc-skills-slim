@@ -1,12 +1,6 @@
-export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
-export type CellIndex = number;
-export type CellValue = number;
+export type { CellIndex, CellValue, Difficulty, Puzzle } from '../../shared/types';
+import type { CellIndex, CellValue, Difficulty } from '../../shared/types';
 export type GameStatus = 'playing' | 'won' | 'lost';
-
-export interface Puzzle {
-  givens: CellValue[];
-  solution: CellValue[];
-}
 
 export type MoveType = 'fill' | 'erase' | 'note' | 'hint';
 
@@ -43,11 +37,9 @@ export const EVENTS = {
   GAME_WON: 'game:won',
   GAME_LOST: 'game:lost',
   VFX_CORRECT: 'vfx:correct',
-  VFX_WRONG: 'vfx:wrong',
   CONNECTION_LOST: 'connection:lost',
   ONLINE_PLAYER_JOINED: 'online:player-joined',
   ONLINE_PLAYER_LEFT: 'online:player-left',
-  ONLINE_OPPONENT_LOST: 'online:opponent-lost',
   ERROR_MESSAGE: 'error:message',
 } as const;
 

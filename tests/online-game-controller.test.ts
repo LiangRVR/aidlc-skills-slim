@@ -145,6 +145,40 @@ describe('OnlineGameController example-based scenarios（PBT-10 互补）', () =
     expect(snap.notes[b]).toEqual([3]);
   });
 
+  it('5c. note undo/redo 整格替换（v2.2/H1 回归）：undone 携带 notes 全集 → ownNotes 整格替换；空数组 → 清空', () => {
+    const { oc, ws } = makeController();
+    const a = empties[0];
+    const b = empties[1];
+    joinController(oc, ws, 'me', 'op', { [a]: [1] });
+    ws.emitMessage({
+      type: 'opApplied',
+      payload: {
+        playerId: 'me',
+        op: { kind: 'undo' },
+        result: 'undone',
+        cellIndex: a,
+        cell: { value: 0, given: false, owner: null, wrong: false },
+        scores: { me: 0, op: 0 },
+        notes: [2, 3],
+      },
+    });
+    expect(oc.snapshot().notes[a]).toEqual([2, 3]);
+    ws.emitMessage({
+      type: 'opApplied',
+      payload: {
+        playerId: 'me',
+        op: { kind: 'redo' },
+        result: 'redone',
+        cellIndex: b,
+        cell: { value: 0, given: false, owner: null, wrong: false },
+        scores: { me: 0, op: 0 },
+        notes: [],
+      },
+    });
+    expect(oc.snapshot().notes[b]).toEqual([]);
+    expect(oc.snapshot().notes[a]).toEqual([2, 3]);
+  });
+
   it('5b. undo 笔记恢复：undone 的 clearedNotes 条目把对应数字加回 ownNotes', () => {
     const { oc, ws } = makeController();
     const a = empties[0];

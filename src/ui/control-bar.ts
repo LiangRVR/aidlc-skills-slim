@@ -10,9 +10,6 @@ export interface ControlBarInfo {
   difficultyLabel: string;
   capabilities?: { hint: boolean; reset: boolean; newGame: boolean };
   newButtonLabel?: string;
-  /** 本地模式沿用传参；已不再展示（FR-37） */
-  mistakes?: number;
-  maxMistakes?: number;
 }
 
 const ACTIONS: { action: ControlAction; label: string }[] = [

@@ -1,5 +1,5 @@
-import type { Difficulty } from '../src/core/types';
-import { SudokuGenerator } from '../src/core/sudoku-generator';
+import type { Difficulty } from '../shared/types';
+import { SudokuGenerator } from '../shared/sudoku-generator';
 import { randomUUID } from 'node:crypto';
 import type { RoomId } from '../shared/protocol';
 import { GameRoom, type RoomSender } from './game-room';

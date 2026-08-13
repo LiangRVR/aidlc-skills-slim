@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RuleValidator } from '../src/core/rule-validator';
+import { RuleValidator } from '../shared/rule-validator';
 
 function emptyBoard(): number[] {
   return new Array(81).fill(0);
