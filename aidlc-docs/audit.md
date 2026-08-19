@@ -1292,11 +1292,81 @@
 
 ---
 
+## Commit and Push (user request, incl. aidlc-workflows-cn)
+**Timestamp**: 2026-08-12T12:05:00Z
+**User Input**: "提交并推送代码，`aidlc-workflows-cn`目录也提交并推送"
+**AI Response**: "Created 3 commits on test/sudoku and pushed to origin (a06bf40..f7f7351): (1) 8d4007b 'fix(protocol): v2.2 note-undo polarity + review findings' (26 files, H1/M1/L1/L2/M2/L3 + 6 regression tests; git detected src/core->shared renames); (2) 6b37e4e 'chore(skill): add Chinese localization of aidlc-workflows skill' (33 files, aidlc-workflows-cn/ committed per explicit user request); (3) f7f7351 'docs: v2.2 review-fix doc sync + RE migration notes' (13 files). Working tree clean."
+**Context**: Git operation - no stage transition; all Round 5 + v2.2 review fixes committed & pushed
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
 ## Build and Test APPROVED -> OPERATIONS (Round 5 workflow complete)
 **Timestamp**: 2026-08-12T11:20:00Z
 **User Input**: "继续继续"
 **AI Response**: "Per APG-01: continuation word = approve and proceed. Build and Test stage APPROVED. Loaded references/operations/operations.md - Operations is a placeholder phase (no deployment/monitoring workflows defined); AI-DLC workflow ends here. Updated aidlc-state.md: Build and Test marked [x] APPROVED; added OPERATIONS PHASE (Round 5) section marked REACHED (placeholder); Current Stage = Round 5 WORKFLOW COMPLETE. All code committed & pushed (a06bf40). Round 5 (competitive score-race mode) summary: 3 units (shared-protocol v2/v2.1, sudoku-server v2, sudoku-online-client v2), 182 vitest + 17 e2e green, 7 manual scenarios pass, 4 user-found bugs fixed (empty-board v1 crash, ScoreBoard layout, clearedNotes v2.1, NumberPad counting), 1 UI trial reverted (icon buttons)."
 **Context**: OPERATIONS PHASE (Round 5) reached (placeholder) - Round 5 AI-DLC workflow COMPLETE
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Aidlc-state.md Checkbox Fix (completed stages marked [x])
+**Timestamp**: 2026-08-13T14:00:00Z
+**User Input**: "各个阶段已完成的，前面的x为什么没有打？"
+**AI Response**: "Audited aidlc-state.md: all stage entries were annotated COMPLETED/approved but checkboxes left as [ ] (inconsistent — only some had [x]). Fixed via replaceAll `- [ ] ` -> `- [x] ` for all completed stages across Round 1-5 (Round 4/5 inception+construction+unit progress). Note: 5 stale duplicate lines under OPERATIONS PHASE (Round 4) (Functional Design unit 2/3, Code Generation unit 2/3, Build and Test) were also auto-marked [x]; they duplicate tracking already present in the unit progress sections and lack COMPLETED annotations — candidate for cleanup/removal, flagged for user."
+**Context**: State tracking maintenance - no stage transition; Round 5 remains WORKFLOW COMPLETE
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Aidlc-state.md Refresh (post-commit sync)
+**Timestamp**: 2026-08-13T13:50:00Z
+**User Input**: "之前的`aidlc-state.md`文件已经过时了，更新最新状态"
+**AI Response**: "Reconciled aidlc-state.md against git history + audit.md. Stale items fixed: (1) Project Information Current Stage updated from 'Round 4 Reverse Engineering' to 'Round 5 WORKFLOW COMPLETE'; (2) Current Stage Post-completion line updated from 'awaiting commit' to committed & pushed 2026-08-13T13:45+08:00 (8d4007b v2.2 fix + 6b37e4e aidlc-workflows-cn localization + f7f7351 doc sync); (3) unit sequence completed markers; (4) working-tree note added. No code/state changes beyond aidlc-state.md refresh."
+**Context**: State tracking maintenance - no stage transition; Round 5 remains WORKFLOW COMPLETE
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Session Resumption - Skill Load
+**Timestamp**: 2026-08-19T01:30:08Z
+**User Input**: "加载aidlc-workflows技能"
+**AI Response**: "Loaded aidlc-workflows skill + mandatory common rules (process-overview, session-continuity, content-validation, question-format-guide). Extensions scanned: workflow-conventions (DOC-01~05 / APG-01~05 / AUD-01~04, always enforced, loaded); opt-in prompts loaded for property-based-testing, security-baseline, resiliency-baseline (full rule files deferred until opt-in). Existing aidlc-state.md detected: Round 5 (competitive score-race mode) WORKFLOW COMPLETE, last commit f7f7351 2026-08-13. Presented welcome-back status; awaiting user direction for next work."
+**Context**: Session resumption - no stage transition; Round 5 remains WORKFLOW COMPLETE
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## Skill Rule Edit - Question Tool Flow (workflow-conventions.md)
+**Timestamp**: 2026-08-19T01:40:09Z
+**User Input**: "我想通过`reference/extensions/workflow/workflow-conventions/workflow-conventions.md`修改一下流程：当生成`{phase-name}-questions.md`问题文件后，调用question tool，用文件中的问题询问用户，并将用户的答案写回文件，然后进入下一步" / follow-up: "不用走aidlc强制流程，这个不是做项目，是改SKILL本身"
+**AI Response**: "Per explicit user instruction, skipped AI-DLC project workflow (skill meta-change, not application development). Edited .agents/skills/aidlc-workflows/references/extensions/workflow/workflow-conventions/workflow-conventions.md: added Group 4 Question Tool Flow (QT-01 immediate question-tool invocation after question-file creation with md->tool mapping rules; QT-02 answer write-back to [Answer]: tags; QT-03 proceed without manual 'done' confirmation after standard validation; QT-04 fallback to manual flow if tool unavailable/fails). Updated Overview (three->four rule groups) and Enforcement Integration table (+ row: every question file creation -> QT-01~04). CN localization copy at aidlc-workflows-cn/... NOT synced (flagged to user)."
+**Context**: Skill maintenance - direct rule edit on the always-enforced workflow-conventions extension; no stage transition
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## QT Rule Verification (live end-to-end demo)
+**Timestamp**: 2026-08-19T01:46:53Z
+**User Input**: "我可以验证下新加的这条规则吗？"
+**AI Response**: "Ran live end-to-end verification of QT-01~04: created temp demo file aidlc-docs/qt-rule-verification-questions.md (3 questions: single-choice w/ recommended option, plain single-choice, multi-choice) -> immediately invoked question tool in same interaction (recommended-first label, no explicit Other option, multiple:true for Q3) -> user answered via tool (Q1=A, Q2=B, Q3=A,B,C,D) -> wrote answers back after [Answer]: tags without altering question/option text -> standard validation passed (complete, no contradictions) -> proceeded without manual 'done' confirmation. Temp file shown to user then deleted. QT-04 fallback not exercised (tool available). All QT rules behaved as specified."
+**Context**: Skill maintenance - QT rule verification; no stage transition
+**User**: Peng Qian
+**Email**: qtalen@gmail.com
+
+---
+
+## CN Localization Sync - QT Rules
+**Timestamp**: 2026-08-19T01:50:13Z
+**User Input**: "更新中文版"
+**AI Response**: "Synced QT-01~04 rule group to Chinese localization aidlc-workflows-cn/references/extensions/workflow/workflow-conventions/workflow-conventions.md (3 edits mirroring EN version): (1) Overview three->four rule groups + QT bullet; (2) inserted '第 4 组：Question 工具流程（QT）' section (QT-01 immediate question-tool invocation + mapping rules, QT-02 answer write-back, QT-03 proceed without manual confirmation, QT-04 tool fallback) translated in existing CN style; (3) Enforcement Integration table + row (每次问题文件创建 -> QT-01~04). Verified via findstr: all QT markers present (lines 10, 124, 136, 139-140, 142, 156). EN and CN versions now in sync."
+**Context**: Skill maintenance - CN localization sync; no stage transition
 **User**: Peng Qian
 **Email**: qtalen@gmail.com
 

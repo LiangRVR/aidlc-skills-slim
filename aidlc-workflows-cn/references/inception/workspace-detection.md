@@ -49,7 +49,7 @@
 ```markdown
 # AI-DLC State Tracking
 
-## Project Information
+## Project Information 
 - **Project Type**: [Greenfield/Brownfield]
 - **Start Date**: [ISO timestamp]
 - **Current Stage**: INCEPTION - Workspace Detection
