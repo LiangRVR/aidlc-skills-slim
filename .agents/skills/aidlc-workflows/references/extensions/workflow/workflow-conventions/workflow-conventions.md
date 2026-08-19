@@ -2,11 +2,12 @@
 
 ## Overview
 
-MANDATORY cross-cutting rules for every AI-DLC workflow execution. This file has no `.opt-in.md` — it is ALWAYS enforced and loaded at workflow start. It consolidates three rule groups:
+MANDATORY cross-cutting rules for every AI-DLC workflow execution. This file has no `.opt-in.md` — it is ALWAYS enforced and loaded at workflow start. It consolidates four rule groups:
 
 - **DOC-01~05** Documentation Consistency — keep aidlc-docs artifacts synchronized with code after every change
 - **APG-01~05** Approval Gate Semantics — how user responses at stage approval gates are classified and handled
 - **AUD-01~04** Audit Attribution — authorship fields on audit.md entries
+- **QT-01~04** Question Tool Flow — after generating a question file, collect answers via the `question` tool, write them back to the file, then proceed
 
 **Enforcement**: At each applicable stage/gate, and after every change request, verify compliance with the applicable rules BEFORE presenting the completion message. Include a compliance summary (compliant / non-compliant / N/A per rule, with brief rationale for N/A).
 
@@ -116,6 +117,33 @@ This rule file MUST NOT contain any real person's name or email — placeholders
 
 ---
 
+## Group 4: Question Tool Flow (QT)
+
+Applies to every `{phase-name}-questions.md` file (including `-clarification-questions.md` variants) created under `aidlc-docs/`. Does NOT apply to stage completion approval gates — those remain in-chat, template-bound, per APG-05.
+
+### QT-01: Immediate Question Tool Invocation
+After creating a question file, call the `question` tool with the file's questions in the SAME interaction. Do NOT stop and wait for the user to manually edit the file.
+
+Mapping rules:
+- Each markdown question → one tool entry: question text → `question`; short topic (e.g., "Q3 Database") → `header` (≤30 chars).
+- Options A/B/C/... → `options` array: condensed 1-5 word `label`, full option text in `description`.
+- Do NOT add an explicit "Other" option — the tool's built-in custom input covers it.
+- If a recommended option exists, place it first with "(Recommended)" in its label.
+- Single-choice questions use `multiple: false`; multi-select questions use `multiple: true`.
+
+**Verification**: no question file is left with "fill in the file and let me know when you're done" as the stopping point; the tool is invoked in the same interaction as file creation.
+
+### QT-02: Answer Write-Back
+Write the tool's answers back into the question file immediately: fill the matching letter after each `[Answer]:` tag (e.g., `[Answer]: C`). For custom answers, write the "Other" option's letter plus the user's verbatim custom text. Question text and option lists MUST NOT be altered during write-back (aligns with DOC-04).
+
+### QT-03: Proceed Without Manual Confirmation
+After write-back, run the standard validation from `question-format-guide.md` (completeness check + contradiction/ambiguity detection) and proceed to the next step directly — do NOT wait for the user to say "done". If validation produces clarification questions, the clarification file also follows QT-01.
+
+### QT-04: Tool Fallback
+If the `question` tool is unavailable, errors out, or returns without answers, fall back to the base manual flow (inform the user, wait for completion confirmation per `question-format-guide.md`) and note the fallback in `aidlc-docs/audit.md`.
+
+---
+
 ## Enforcement Integration
 
 | Context | Applicable Rules |
@@ -125,4 +153,5 @@ This rule file MUST NOT contain any real person's name or email — placeholders
 | Shared rule file edits | DOC-05 |
 | Every approval gate (all stages, inception + construction) | APG-01 ~ APG-05 |
 | Every audit.md write | AUD-01, AUD-02, AUD-03 |
+| Every question file creation (requirements, stories, design, clarification) | QT-01 ~ QT-04 |
 | This file's own maintenance | DOC-05, AUD-04 |
