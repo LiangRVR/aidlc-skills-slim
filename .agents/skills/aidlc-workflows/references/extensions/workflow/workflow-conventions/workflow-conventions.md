@@ -56,6 +56,8 @@ Shared workflow rule files MUST contain no project-specific identifiers (project
 
 Stage completion messages keep their standardized two-option templates unchanged — this group is an interpretation layer for the user's free-form response.
 
+**Autonomous Mode override**: When Autonomous Mode is active (see `../autonomous-mode/autonomous-mode.md`), AM-03 suspends APG-01~04 waiting behavior for stages NOT in the Review Stages list; stages in the Review Stages list follow APG-01~05 normally. APG-05 always applies.
+
 ### APG-01: Approval Intent Classification
 At every approval gate, classify the user's reply into exactly one intent BEFORE acting:
 
@@ -121,6 +123,8 @@ This rule file MUST NOT contain any real person's name or email — placeholders
 
 Applies to every `{phase-name}-questions.md` file (including `-clarification-questions.md` variants) created under `aidlc-docs/`. Does NOT apply to stage completion approval gates — those remain in-chat, template-bound, per APG-05.
 
+**Autonomous Mode override**: When Autonomous Mode is active with question handling `auto-recommended` (see `../autonomous-mode/autonomous-mode.md` AM-04), QT-01's tool-based collection is suspended — the AI selects recommended answers and writes them back with attribution. Modes `manual` and custom follow QT-01~04 normally.
+
 ### QT-01: Immediate Question Tool Invocation
 After creating a question file, call the `question` tool with the file's questions in the SAME interaction. Do NOT stop and wait for the user to manually edit the file.
 
@@ -154,4 +158,5 @@ If the `question` tool is unavailable, errors out, or returns without answers, f
 | Every approval gate (all stages, inception + construction) | APG-01 ~ APG-05 |
 | Every audit.md write | AUD-01, AUD-02, AUD-03 |
 | Every question file creation (requirements, stories, design, clarification) | QT-01 ~ QT-04 |
+| Autonomous Mode trigger / gates / questions / pause / resume | AM-01 ~ AM-09 (see `../autonomous-mode/autonomous-mode.md`) |
 | This file's own maintenance | DOC-05, AUD-04 |
