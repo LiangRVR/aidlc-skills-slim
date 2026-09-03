@@ -2,7 +2,7 @@
 
 ## Overview
 
-MANDATORY cross-cutting rules for every AI-DLC workflow execution. This file has no `.opt-in.md` — it is ALWAYS enforced and loaded at workflow start. Autonomous Mode is **OFF by default**: these rules stay dormant until the user explicitly triggers activation (AM-01). Once active, they override stage approval gates (APG group) and question collection (QT group) per the rules below.
+MANDATORY cross-cutting rules for every AI-DLC workflow execution while Autonomous Mode is active. This file has a companion `autonomous-mode.opt-in.md` — a lightweight trigger stub loaded at workflow start. **This full rules file is loaded ON-DEMAND, only when the stub detects a trigger phrase or persisted `Enabled: Yes` state.** Autonomous Mode is **OFF by default**: these rules stay dormant until the user explicitly triggers activation (AM-01). Once active, they override stage approval gates (APG group) and question collection (QT group) per the rules below.
 
 - **AM-01** Trigger Detection — recognize activation phrases in ANY user message, at ANY stage
 - **AM-02** Activation Flow — audit, ask question-handling preference, auto-approve pending gate, persist state
@@ -14,11 +14,13 @@ MANDATORY cross-cutting rules for every AI-DLC workflow execution. This file has
 - **AM-08** State Persistence — `## Autonomous Mode` section in aidlc-state.md
 - **AM-09** Session Resumption — restore and announce autonomous mode on resume
 
-**Enforcement**: When Autonomous Mode is active, verify compliance with the applicable AM rules BEFORE presenting any stage completion message or proceeding past any gate. Include AM rules in the stage compliance summary (compliant / non-compliant / N/A per rule, with brief rationale for N/A). Blocking finding behavior follows the same convention as the other groups in `../workflow-conventions/workflow-conventions.md`. When Autonomous Mode is OFF, all AM rules are N/A.
+**Enforcement**: When Autonomous Mode is active, verify compliance with the applicable AM rules BEFORE presenting any stage completion message or proceeding past any gate. Include AM rules in the stage compliance summary (compliant / non-compliant / N/A per rule, with brief rationale for N/A). Blocking finding behavior follows the same convention as the other groups in `../workflow-conventions/workflow-conventions.md`. When Autonomous Mode is OFF — including whenever this file has not been loaded — all AM rules are N/A.
 
 ---
 
 ## AM-01: Trigger Detection
+
+**Note on first activation**: Initial detection of an Activate intent (and of persisted `Enabled: Yes` state) is performed by the companion `autonomous-mode.opt-in.md` stub, which loads this file on demand. Once this file is loaded, AM-01 takes over detection of ALL autonomous-mode intents (including Pause and Deactivate) for the rest of the session.
 
 **MANDATORY**: Evaluate EVERY user message — at any stage, at any point in the conversation, not just at workflow start — for Autonomous Mode control semantics, in ANY language (Chinese, English, or others).
 
