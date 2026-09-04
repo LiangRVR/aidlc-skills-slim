@@ -1,0 +1,22 @@
+[project]
+name = "minesweeper"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pyside6",
+    "PySide6-Fluent-Widgets",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "hypothesis",
+    "pyinstaller",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["minesweeper"]
