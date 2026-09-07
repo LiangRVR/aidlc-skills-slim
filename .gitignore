@@ -219,3 +219,6 @@ __marimo__/
 
 # Node.js
 node_modules/
+
+# aidlc-workflows Chinese translation (generated)
+aidlc-workflows-cn/
