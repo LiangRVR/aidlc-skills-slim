@@ -28,7 +28,7 @@ All rules are **blocking** by default. Rules not applicable to the current stage
 After any approved change (new/modified requirement, UI tweak, signature/enum/value-range change), BEFORE the completion message:
 1. List affected keywords, numeric ranges, type signatures, component names, counts
 2. Search the entire `aidlc-docs/` tree for occurrences of those terms (including superseded values)
-3. Update every artifact containing stale references, marking the change origin where the artifact format supports it
+3. Update every artifact containing stale references, marking the change origin where the artifact format supports it. When the Context Checkpointing extension is enabled, this sweep includes checkpoint files under `aidlc-docs/checkpoints/` — they are current-state artifacts, not historical records (see CTX-01), so in-place updates to stale checkpoint content are required and do not violate DOC-04
 
 Typical mapping: functionality → requirements/stories/business rules; enums/ranges → domain entities, logic models, component methods; signatures → component methods, interaction flows; new components → inventories, structure trees, summaries; test counts → summary coverage sections.
 
