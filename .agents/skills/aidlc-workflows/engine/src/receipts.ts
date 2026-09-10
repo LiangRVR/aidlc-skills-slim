@@ -1,4 +1,4 @@
-import { canonicalDigest, hashArtifact } from './hashing.js';
+import { canonicalDigest, hashArtifact, hashPlanArtifact } from './hashing.js';
 import type {
   AidlcState,
   DesignReceipt,
@@ -41,7 +41,7 @@ export function buildDesignReceipt(root: string, state: AidlcState, at = new Dat
 export function buildPlanReceipt(root: string, state: AidlcState, at = new Date().toISOString()): PlanReceipt {
   const requirements_sha256 = hashArtifact(root, state.artifacts.requirements, 'requirements');
   const design_sha256 = state.workflow.design_required ? hashArtifact(root, state.artifacts.design, 'design') : null;
-  const plan_sha256 = hashArtifact(root, state.artifacts.plan, 'plan');
+  const plan_sha256 = hashPlanArtifact(root, state.artifacts.plan);
   return { requirements_sha256, design_sha256, plan_sha256, bundle_sha256: canonicalDigest({ requirements_sha256, design_sha256, plan_sha256 }), completed_at: at };
 }
 
