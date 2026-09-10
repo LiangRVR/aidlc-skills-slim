@@ -15,7 +15,7 @@ The active parent agent decides:
 - semantic quality of Requirements, Design, Plan, implementation, Review, and Verification;
 - how implementation work is executed or delegated.
 
-These routing decisions are persisted at initialization and are not repeatedly inferred afterward.
+These routing decisions are persisted. If new pre-Implementation evidence changes them, the agent must use explicit engine `reclassify`; it must not edit state directly.
 
 ## Bookkeeping owned by the engine
 
@@ -28,6 +28,7 @@ The engine owns:
 - mechanically testable completion predicates;
 - workflow invariants;
 - blocker state;
+- explicit pre-Implementation reclassification;
 - conservative downstream invalidation after rework;
 - atomic state writes and lifecycle-audit mutations.
 
@@ -56,6 +57,7 @@ npm test
 - `init` — create validated state from explicit routing decisions and preserve the original request.
 - `next` — read-only; return the single current workflow directive.
 - `status` — read-only; return validated state.
+- `reclassify` — replace risk/routing before Implementation; invalidate Plan approval/downstream progress conservatively.
 - `report <event>` — apply a stage/review/verification event after predicates pass.
 - `approve` — planning approval with hold.
 - `continue` — planning approval/continuation into Implementation.
@@ -71,15 +73,15 @@ A mutation:
 1. reads and validates current state;
 2. validates event legality and applicable completion predicates;
 3. computes next state in memory;
-4. validates next-state schema-equivalent rules and workflow invariants;
+4. validates next-state structure and workflow invariants;
 5. atomically replaces the state file;
 6. appends an audit record when required by the audit policy.
 
-Rejected events leave state byte-for-byte unchanged. For audited gate mutations, an audit-write failure restores the prior state.
+Rejected events leave state byte-for-byte unchanged. For audited gate/reclassification mutations, an audit-write failure restores the prior state.
 
 ## JSON Schema
 
-`schemas/aidlc-state.schema.json` remains the canonical external state format. v0.1 uses an internal schema-equivalent validator to avoid a runtime JSON Schema dependency. Any schema change must update both validator and tests in the same change.
+`schemas/aidlc-state.schema.json` remains the canonical external state format. v0.1 uses an internal schema-equivalent validator to avoid a runtime JSON Schema dependency. Any schema change must update validator and tests together.
 
 ## Deferred to v0.2
 
@@ -90,4 +92,4 @@ Rejected events leave state byte-for-byte unchanged. For audited gate mutations,
 - hash-driven downstream invalidation;
 - runtime-specific hooks/plugins.
 
-These additions must not change the lifecycle stages or approval semantics without a new schema/contract version.
+These additions must not change lifecycle stages or approval semantics without a new schema/contract version.
