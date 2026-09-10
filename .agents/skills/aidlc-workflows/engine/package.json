@@ -10,8 +10,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "sync-runtime": "npm run build && node scripts/sync-runtime.mjs",
-    "check-runtime": "npm run sync-runtime && git diff --exit-code -- runtime",
-    "test": "npm run build && node scripts/run-tests.mjs"
+    "test": "npm run build && node scripts/run-tests.mjs",
+    "test-runtime": "npm run build && node scripts/run-runtime-tests.mjs"
   },
   "devDependencies": {
     "typescript": "5.8.3"
