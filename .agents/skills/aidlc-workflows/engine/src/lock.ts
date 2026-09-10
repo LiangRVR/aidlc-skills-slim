@@ -3,7 +3,7 @@ import { hostname } from 'node:os';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { EngineError } from './errors.js';
-import { LOCK_RELATIVE_PATH, repositoryPath } from './storage.js';
+import { assertExistingPathContained, assertWritablePathContained, LOCK_RELATIVE_PATH, repositoryPath } from './storage.js';
 import { ENGINE_VERSION } from './types.js';
 
 export interface WorkflowLock {
@@ -35,8 +35,9 @@ function parseLock(raw: string): WorkflowLock | null {
 }
 
 export function readWorkflowLock(root: string): { raw: string; lock: WorkflowLock | null } | null {
-  const path = repositoryPath(root, LOCK_RELATIVE_PATH);
-  if (!existsSync(path)) return null;
+  const lexical = repositoryPath(root, LOCK_RELATIVE_PATH);
+  if (!existsSync(lexical)) return null;
+  const path = assertExistingPathContained(root, LOCK_RELATIVE_PATH);
   const raw = readFileSync(path, 'utf8');
   return { raw, lock: parseLock(raw) };
 }
@@ -56,7 +57,7 @@ export function lockIsProvablyStale(lock: WorkflowLock): boolean {
 }
 
 export function acquireWorkflowLock(root: string, operation: string): WorkflowLock {
-  const file = repositoryPath(root, LOCK_RELATIVE_PATH);
+  const file = assertWritablePathContained(root, LOCK_RELATIVE_PATH);
   mkdirSync(dirname(file), { recursive: true });
   const lock: WorkflowLock = {
     lock_version: 1,
@@ -79,10 +80,11 @@ export function acquireWorkflowLock(root: string, operation: string): WorkflowLo
 }
 
 export function releaseWorkflowLock(root: string, owned: WorkflowLock): void {
-  const file = repositoryPath(root, LOCK_RELATIVE_PATH);
-  if (!existsSync(file)) return;
+  const lexical = repositoryPath(root, LOCK_RELATIVE_PATH);
+  if (!existsSync(lexical)) return;
   const existing = readWorkflowLock(root);
   if (!existing?.lock || existing.lock.nonce !== owned.nonce) throw new EngineError('LOCK_OWNERSHIP_LOST', 'Refusing to remove a workflow lock not owned by this process');
+  const file = assertWritablePathContained(root, LOCK_RELATIVE_PATH);
   rmSync(file, { force: true });
 }
 
@@ -91,15 +93,21 @@ export function removeStaleOrMalformedLock(root: string): 'none' | 'stale' | 'ma
   if (!existing) return 'none';
   if (existing.lock) {
     if (!lockIsProvablyStale(existing.lock)) throw new EngineError('WORKFLOW_LOCKED', `Active workflow lock held by pid ${existing.lock.pid} on ${existing.lock.hostname}`);
-    rmSync(repositoryPath(root, LOCK_RELATIVE_PATH), { force: true });
+    rmSync(assertWritablePathContained(root, LOCK_RELATIVE_PATH), { force: true });
     return 'stale';
   }
-  rmSync(repositoryPath(root, LOCK_RELATIVE_PATH), { force: true });
+  rmSync(assertWritablePathContained(root, LOCK_RELATIVE_PATH), { force: true });
   return 'malformed';
 }
 
 export function withWorkflowLock<T>(root: string, operation: string, fn: () => T): T {
   const lock = acquireWorkflowLock(root, operation);
-  try { return fn(); }
-  finally { releaseWorkflowLock(root, lock); }
+  try {
+    const result = fn();
+    releaseWorkflowLock(root, lock);
+    return result;
+  } catch (error) {
+    try { releaseWorkflowLock(root, lock); } catch {}
+    throw error;
+  }
 }
