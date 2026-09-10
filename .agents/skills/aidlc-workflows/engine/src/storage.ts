@@ -126,6 +126,12 @@ export function readState(root: string): AidlcState | null {
   const raw = readStateBytes(root);
   if (raw === null) return null;
   const parsed = parseJson(raw, STATE_RELATIVE_PATH);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new EngineError('INVALID_STATE', 'state must be an object');
+  const version = (parsed as Record<string, unknown>).schema_version;
+  if (version !== 3) {
+    if (version === 1 || version === 2) throw new EngineError('STATE_MIGRATION_REQUIRED', `State schema v${String(version)} must be migrated to v3`);
+    throw new EngineError('INVALID_STATE', `Unsupported state schema version: ${String(version)}`);
+  }
   assertValidState(parsed);
   return parsed;
 }
