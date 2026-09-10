@@ -2,11 +2,11 @@
 
 `aidlc-docs/aidlc-state.json` is the only workflow cursor. Do not maintain a parallel Markdown state or `MEMORY.md`.
 
-The canonical machine schema is `schemas/aidlc-state.schema.json`. The state file must validate against schema version 1 before a transition is accepted.
+The canonical external schema is `schemas/aidlc-state.schema.json`. Engine v0.1 validates the same version-1 structure and invariants before accepting transitions.
 
 ## Initialization decisions
 
-During Preflight, the active parent agent makes the semantic routing decisions once and persists them:
+During Preflight, the active parent agent makes the semantic routing decisions and supplies them to `aidlc-engine init`:
 
 - `risk`: `low | standard | high`
 - `workflow.design_required`
@@ -15,7 +15,7 @@ During Preflight, the active parent agent makes the semantic routing decisions o
 - `workflow.final_acceptance_required`
 - `workflow.security_required`
 
-These are decisions, not repeatedly inferred properties. A future deterministic engine validates their invariants using `transition-contract.md`.
+These are persisted decisions, not repeatedly inferred properties. If new evidence changes them before Implementation, update them only through `aidlc-engine reclassify`. Reclassification is forbidden once Implementation has started.
 
 ## Canonical state example
 
@@ -43,8 +43,8 @@ These are decisions, not repeatedly inferred properties. A future deterministic 
     "requirements": "aidlc-docs/changes/260910-auth/requirements.md",
     "design": "aidlc-docs/changes/260910-auth/design.md",
     "plan": "aidlc-docs/changes/260910-auth/plan.md",
-    "review": null,
-    "verification": null
+    "review": "aidlc-docs/changes/260910-auth/review.md",
+    "verification": "aidlc-docs/changes/260910-auth/verification.md"
   },
   "progress": {
     "requirements": "complete",
@@ -61,27 +61,32 @@ These are decisions, not repeatedly inferred properties. A future deterministic 
 
 ## Ownership
 
-- Only the active parent agent updates state until the deterministic engine exists.
+- The active agent owns semantic decisions and artifacts.
+- The deterministic engine owns lifecycle-state mutations.
 - Delegated workers never edit `aidlc-state.json`.
-- Once the engine exists, all lifecycle mutations must go through it; direct state edits become recovery-only behavior.
-- If state conflicts with actual artifacts/source, stop progression, inspect the change directory and Git state, and repair conservatively. Record material recovery in the change audit.
+- Direct state edits are recovery-only. After recovery, validate with `aidlc-engine status` and record material recovery in the change audit.
+- If state conflicts with actual artifacts/source, stop progression and inspect the change directory and Git history before recovery.
+
+## Reclassification
+
+`reclassify` replaces the complete risk/routing decision set before Implementation. It validates the new workflow invariants, clears any planning approval, preserves completed Requirements, preserves completed Design only when it remains applicable, and resets Plan plus downstream progress. Newly required Design is routed through Design before a fresh Plan.
 
 ## Transition authority
 
-The legal events, transitions, approval semantics, and workflow invariants are defined in `transition-contract.md`. Do not invent a transition that is absent from that contract.
+Legal events, transitions, approval semantics, reclassification behavior, and workflow invariants are defined in `transition-contract.md` and implemented by the engine.
 
-Stage completion requirements are defined in `completion-predicates.md`. A completion event may not be reported until its predicate passes.
+Stage completion requirements are defined in `completion-predicates.md` and mechanically enforced where possible by `engine/src/predicates.ts`. Semantic quality remains agent/reviewer responsibility.
 
 ## Audit
 
-Each change owns `audit.md`. Log only information Git does not capture well:
+Each change owns `audit.md`. Record only information Git does not capture well:
 
 - original user request;
 - material answers that alter requirements/design;
 - planning approval, hold, continuation, or rejection;
-- consequential design or risk decisions;
+- workflow reclassification and consequential risk decisions;
 - explicit risk acceptance;
 - final acceptance;
 - material state recovery.
 
-Use timestamps. Preserve historical entries; corrections are appended rather than rewritten. Git remains the source of history for normal file/code edits.
+The engine writes initialization, reclassification, lifecycle gate, and acceptance records. The active agent remains responsible for appending semantic decisions that are outside engine events. Historical entries are append-only; Git remains the source of history for ordinary code/file edits.

@@ -1,6 +1,6 @@
 # AI-DLC Skills Slim
 
-A slim, runtime-agnostic adaptation of AWS AI-DLC v1 for structured AI-assisted software development.
+A slim, runtime-agnostic adaptation of AWS AI-DLC v1 for structured AI-assisted software development, with a deterministic state engine.
 
 This fork keeps the useful lifecycle discipline from `qtalen/aidlc-skills` while removing overlapping stages, verbose ceremony, duplicate state, and runtime-specific orchestration assumptions.
 
@@ -28,30 +28,60 @@ Final Acceptance (when required)
 Complete
 ```
 
-The workflow adapts through explicit persisted routing decisions rather than repeatedly re-inferring the process.
+Workflow routing is decided during Preflight and persisted. If new evidence changes that routing before Implementation, the engine provides an explicit `reclassify` mutation. After that, the deterministic engine enforces legal sequencing and gates.
 
 ## Responsibility split
 
-AI-DLC Slim owns:
+AI-DLC Slim owns lifecycle, workflow state, approval semantics, project/change artifacts, completion requirements, and verification expectations.
 
-- lifecycle stages;
-- workflow state;
-- approval semantics;
-- project/change artifacts;
-- completion requirements;
-- verification expectations.
-
-The currently active agent/runtime owns:
-
-- execution strategy;
-- delegation and parallelism;
-- model/provider selection;
-- tool/MCP selection;
-- specialist routing.
+The currently active agent/runtime owns execution strategy, delegation/parallelism, model/provider selection, tool/MCP selection, and specialist routing.
 
 The Skill never hardcodes OMO Slim or any other orchestration framework. OMO can remain the active orchestrator without AI-DLC depending on it.
 
-## Deterministic state contract
+## Deterministic engine v0.1
+
+The engine lives under:
+
+```text
+.agents/skills/aidlc-workflows/engine/
+```
+
+It is written in TypeScript, requires Node.js 20+, and has zero runtime dependencies. TypeScript is used only to build/test the engine.
+
+Build it after installing the Skill source:
+
+```bash
+cd .agents/skills/aidlc-workflows/engine
+npm install
+npm run build
+```
+
+Then use:
+
+```bash
+node .agents/skills/aidlc-workflows/engine/dist/src/cli.js status
+node .agents/skills/aidlc-workflows/engine/dist/src/cli.js next
+```
+
+The command surface is intentionally small:
+
+```text
+init
+next                         # read-only
+status                       # read-only
+reclassify                   # pre-Implementation routing change
+report <lifecycle-event>
+approve                       # planning approval + HOLD
+continue                      # planning approval/continuation
+request-changes
+block / unblock
+```
+
+The engine enforces `approve != continue`, risk/workflow invariants, legal transitions, blockers, required artifact predicates, review routing, final acceptance, and conservative downstream invalidation after rework. Rejected transitions leave the persisted state unchanged.
+
+`reclassify` replaces the complete risk/routing decision set before Implementation. It clears planning approval, preserves completed Requirements, preserves completed Design only when still applicable, and resets Plan plus downstream progress. If Design becomes newly required, the workflow routes through Design before a fresh Plan.
+
+## State contract
 
 The only workflow cursor is:
 
@@ -59,13 +89,13 @@ The only workflow cursor is:
 aidlc-docs/aidlc-state.json
 ```
 
-Its canonical schema lives at:
+Its canonical external schema lives at:
 
 ```text
 .agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json
 ```
 
-Preflight persists these workflow decisions once:
+Preflight persists these decisions:
 
 - `design_required`
 - `planning_gate_required`
@@ -73,14 +103,12 @@ Preflight persists these workflow decisions once:
 - `final_acceptance_required`
 - `security_required`
 
-The machine contract is split into:
+The contract is split into:
 
-- `references/state.md` — state ownership and JSON model;
-- `references/transition-contract.md` — legal events/transitions and risk invariants;
+- `references/state.md` — state ownership/model;
+- `references/transition-contract.md` — legal transitions, reclassification, and risk invariants;
 - `references/completion-predicates.md` — minimum completion requirements;
-- `references/engine-contract.md` — boundary for the future deterministic engine.
-
-This lets a future state machine own bookkeeping while the LLM remains responsible for semantic judgment.
+- `references/engine-contract.md` — agent/engine boundary.
 
 ## Approval semantics
 
@@ -138,38 +166,25 @@ Security is automatic whenever security triggers apply; it is not an opt-in exte
 
 Completion is evidence-based. Verification maps acceptance criteria to actual outcomes and records commands/actions performed.
 
-Unchecked behavior is reported as `NOT VERIFIED`, not assumed to work. Tests/checks must not be weakened merely to obtain a passing result without explicit user authorization.
+Unchecked behavior is `NOT VERIFIED`, not assumed to work. Tests/checks must not be weakened merely to obtain a passing result without explicit user authorization.
+
+## Engine tests
+
+The v0.1 implementation includes automated coverage of the contract matrix: initialization invariants, conditional Design, planning gates, approve/continue separation, pre-Implementation reclassification, illegal transitions, Implementation completion, Review pass/fail and invalidation, Verification failures/`NOT VERIFIED`, final acceptance, blockers, read-only operations, and rejected-transition atomicity.
+
+```bash
+cd .agents/skills/aidlc-workflows/engine
+npm install
+npm test
+```
 
 ## Installation
 
-Copy `.agents` into the project root, or install the skill in the user-level agent skills location supported by your coding environment.
+Copy `.agents` into the project root, or install the Skill in the user-level agent skills location supported by your coding environment. Templates for a thin `AGENTS.md` and durable project baseline are under `.agents/skills/aidlc-workflows/templates/`.
 
-Templates for a thin `AGENTS.md` and durable project baseline are under:
+## v0.2 boundary
 
-```text
-.agents/skills/aidlc-workflows/templates/
-```
-
-## State-machine roadmap
-
-The workflow contract is intentionally frozen before engine implementation.
-
-The first deterministic engine should stay small and expose only:
-
-```text
-init
-next
-report <event>
-approve
-continue
-request-changes
-block / unblock
-status
-```
-
-`next` and `status` are read-only. Mutations must validate the current state, event legality, completion predicates, next-state schema, and workflow invariants before writing atomically.
-
-Artifact hashing, review freshness, source fingerprints, evidence receipts, and downstream staleness propagation are deferred to v0.2.
+Artifact/source hashes, review freshness receipts, executable verification receipts, source manifests, hash-driven downstream invalidation, and runtime-specific hooks/plugins remain intentionally deferred. They should strengthen evidence without creating a second lifecycle.
 
 ## Attribution
 

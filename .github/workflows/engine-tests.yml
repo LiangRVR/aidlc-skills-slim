@@ -1,0 +1,34 @@
+name: Engine tests
+
+on:
+  push:
+    paths:
+      - '.agents/skills/aidlc-workflows/engine/**'
+      - '.agents/skills/aidlc-workflows/references/engine-*.md'
+      - '.agents/skills/aidlc-workflows/references/transition-contract.md'
+      - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
+      - '.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json'
+  pull_request:
+    paths:
+      - '.agents/skills/aidlc-workflows/engine/**'
+      - '.agents/skills/aidlc-workflows/references/engine-*.md'
+      - '.agents/skills/aidlc-workflows/references/transition-contract.md'
+      - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
+      - '.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .agents/skills/aidlc-workflows/engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-audit --no-fund
+      - run: npm test
