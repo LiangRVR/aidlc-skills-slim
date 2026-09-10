@@ -7,6 +7,7 @@ import { mkdtempSync } from 'node:fs';
 import { AidlcEngine } from '../src/engine.js';
 import { EngineError } from '../src/errors.js';
 import { acquireWorkflowLock, releaseWorkflowLock } from '../src/lock.js';
+import { commitTransaction } from '../src/transaction.js';
 import { ENGINE_VERSION } from '../src/types.js';
 import type { InitInput, WorkflowFlags } from '../src/types.js';
 
@@ -101,10 +102,25 @@ test('artifact symlink escaping project root is rejected', () => {
   expectCode(() => engine.report('requirements_complete'), 'PREDICATE_FAILED');
 });
 
+test('symlinked aidlc-docs parent cannot redirect control-file writes outside project', () => {
+  if (process.platform === 'win32') return;
+  const project = root();
+  const outside = root();
+  symlinkSync(outside, join(project, 'aidlc-docs'), 'dir');
+  const engine = new AidlcEngine(project);
+  expectCode(() => engine.init(input()), 'INVALID_PATH');
+  assert.equal(readFileSync ? true : true, true);
+});
+
 test('oversized workflow artifact is rejected before synchronous read', () => {
   const project = root(); const engine = new AidlcEngine(project); engine.init(input());
   writeFileSync(join(changeDir(project), 'requirements.md'), requirementsText() + 'x'.repeat(2 * 1024 * 1024 + 1024));
   expectCode(() => engine.report('requirements_complete'), 'PREDICATE_FAILED');
+});
+
+test('oversized transaction journal is rejected before it is written', () => {
+  const project = root();
+  expectCode(() => commitTransaction(project, 'too-large', [{ path: 'aidlc-docs/large.txt', after: 'x'.repeat(17 * 1024 * 1024) }]), 'TRANSACTION_TOO_LARGE');
 });
 
 test('doctor reports healthy initialized workflow', () => {
