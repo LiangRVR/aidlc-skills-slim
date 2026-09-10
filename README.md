@@ -28,7 +28,7 @@ Final Acceptance (when required)
 Complete
 ```
 
-Workflow routing is decided once during Preflight and persisted. The deterministic engine then enforces legal sequencing and gates.
+Workflow routing is decided during Preflight and persisted. If new evidence changes that routing before Implementation, the engine provides an explicit `reclassify` mutation. After that, the deterministic engine enforces legal sequencing and gates.
 
 ## Responsibility split
 
@@ -69,6 +69,7 @@ The command surface is intentionally small:
 init
 next                         # read-only
 status                       # read-only
+reclassify                   # pre-Implementation routing change
 report <lifecycle-event>
 approve                       # planning approval + HOLD
 continue                      # planning approval/continuation
@@ -77,6 +78,8 @@ block / unblock
 ```
 
 The engine enforces `approve != continue`, risk/workflow invariants, legal transitions, blockers, required artifact predicates, review routing, final acceptance, and conservative downstream invalidation after rework. Rejected transitions leave the persisted state unchanged.
+
+`reclassify` replaces the complete risk/routing decision set before Implementation. It clears planning approval, preserves completed Requirements, preserves completed Design only when still applicable, and resets Plan plus downstream progress. If Design becomes newly required, the workflow routes through Design before a fresh Plan.
 
 ## State contract
 
@@ -92,7 +95,7 @@ Its canonical external schema lives at:
 .agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json
 ```
 
-Preflight persists these decisions once:
+Preflight persists these decisions:
 
 - `design_required`
 - `planning_gate_required`
@@ -103,7 +106,7 @@ Preflight persists these decisions once:
 The contract is split into:
 
 - `references/state.md` — state ownership/model;
-- `references/transition-contract.md` — legal transitions and risk invariants;
+- `references/transition-contract.md` — legal transitions, reclassification, and risk invariants;
 - `references/completion-predicates.md` — minimum completion requirements;
 - `references/engine-contract.md` — agent/engine boundary.
 
@@ -167,7 +170,7 @@ Unchecked behavior is `NOT VERIFIED`, not assumed to work. Tests/checks must not
 
 ## Engine tests
 
-The v0.1 implementation includes automated coverage of the contract matrix: initialization invariants, conditional Design, planning gates, approve/continue separation, illegal transitions, Implementation completion, Review pass/fail and invalidation, Verification failures/`NOT VERIFIED`, final acceptance, blockers, read-only operations, and rejected-transition atomicity.
+The v0.1 implementation includes automated coverage of the contract matrix: initialization invariants, conditional Design, planning gates, approve/continue separation, pre-Implementation reclassification, illegal transitions, Implementation completion, Review pass/fail and invalidation, Verification failures/`NOT VERIFIED`, final acceptance, blockers, read-only operations, and rejected-transition atomicity.
 
 ```bash
 cd .agents/skills/aidlc-workflows/engine
