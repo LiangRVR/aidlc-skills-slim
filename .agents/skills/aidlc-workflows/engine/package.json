@@ -1,14 +1,16 @@
 {
   "name": "@aidlc-slim/engine",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Deterministic state engine for AI-DLC Slim",
   "bin": {
-    "aidlc-engine": "dist/src/cli.js"
+    "aidlc-engine": "runtime/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "sync-runtime": "npm run build && node scripts/sync-runtime.mjs",
+    "check-runtime": "npm run sync-runtime && git diff --exit-code -- runtime",
     "test": "npm run build && node --test dist/tests/*.test.js"
   },
   "devDependencies": {

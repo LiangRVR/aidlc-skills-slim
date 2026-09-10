@@ -1,0 +1,113 @@
+import { existsSync } from 'node:fs';
+import { EngineError } from './errors.js';
+import { deleteRepositoryFile, parseJson, readTextIfExists, repositoryPath, TXN_RELATIVE_PATH, writeTextAtomic } from './storage.js';
+import { ENGINE_VERSION } from './types.js';
+
+interface TransactionFile {
+  path: string;
+  before: string | null;
+  after: string | null;
+}
+
+export interface TransactionRecord {
+  transaction_version: 1;
+  engine_version: string;
+  id: string;
+  operation: string;
+  started_at: string;
+  files: TransactionFile[];
+}
+
+export interface FileMutation {
+  path: string;
+  after: string | null;
+}
+
+function randomId(): string {
+  return `${Date.now()}-${process.pid}-${Math.random().toString(16).slice(2)}`;
+}
+
+function validateTransaction(value: unknown): TransactionRecord {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new EngineError('INVALID_TRANSACTION', 'Transaction record must be an object');
+  const tx = value as Partial<TransactionRecord>;
+  if (tx.transaction_version !== 1 || typeof tx.engine_version !== 'string' || typeof tx.id !== 'string' || typeof tx.operation !== 'string' || typeof tx.started_at !== 'string' || !Array.isArray(tx.files)) {
+    throw new EngineError('INVALID_TRANSACTION', 'Transaction record is malformed');
+  }
+  for (const file of tx.files) {
+    if (!file || typeof file !== 'object' || typeof (file as TransactionFile).path !== 'string') throw new EngineError('INVALID_TRANSACTION', 'Transaction file entry is malformed');
+    const before = (file as TransactionFile).before;
+    const after = (file as TransactionFile).after;
+    if (!(typeof before === 'string' || before === null) || !(typeof after === 'string' || after === null)) throw new EngineError('INVALID_TRANSACTION', 'Transaction file contents must be string or null');
+  }
+  return tx as TransactionRecord;
+}
+
+export function pendingTransactionExists(root: string): boolean {
+  return existsSync(repositoryPath(root, TXN_RELATIVE_PATH));
+}
+
+export function readPendingTransaction(root: string): TransactionRecord | null {
+  const raw = readTextIfExists(root, TXN_RELATIVE_PATH);
+  if (raw === null) return null;
+  return validateTransaction(parseJson(raw, TXN_RELATIVE_PATH));
+}
+
+export function ensureNoPendingTransaction(root: string): void {
+  if (pendingTransactionExists(root)) throw new EngineError('RECOVERY_REQUIRED', `Pending transaction exists at ${TXN_RELATIVE_PATH}; run doctor --repair`);
+}
+
+function applyContent(root: string, path: string, content: string | null): void {
+  if (content === null) deleteRepositoryFile(root, path);
+  else writeTextAtomic(root, path, content);
+}
+
+export function commitTransaction(root: string, operation: string, mutations: FileMutation[]): void {
+  ensureNoPendingTransaction(root);
+  const unique = new Set<string>();
+  const files: TransactionFile[] = mutations.map((mutation) => {
+    repositoryPath(root, mutation.path);
+    if (unique.has(mutation.path)) throw new EngineError('INVALID_TRANSACTION', `Duplicate transaction path: ${mutation.path}`);
+    unique.add(mutation.path);
+    return { path: mutation.path, before: readTextIfExists(root, mutation.path), after: mutation.after };
+  });
+
+  const tx: TransactionRecord = {
+    transaction_version: 1,
+    engine_version: ENGINE_VERSION,
+    id: randomId(),
+    operation,
+    started_at: new Date().toISOString(),
+    files,
+  };
+  writeTextAtomic(root, TXN_RELATIVE_PATH, `${JSON.stringify(tx, null, 2)}\n`);
+
+  const applied: TransactionFile[] = [];
+  try {
+    for (const file of files) { applyContent(root, file.path, file.after); applied.push(file); }
+    deleteRepositoryFile(root, TXN_RELATIVE_PATH);
+  } catch (error) {
+    let rollbackFailed = false;
+    for (const file of [...applied].reverse()) {
+      try { applyContent(root, file.path, file.before); } catch { rollbackFailed = true; }
+    }
+    if (!rollbackFailed) {
+      try { deleteRepositoryFile(root, TXN_RELATIVE_PATH); } catch { rollbackFailed = true; }
+    }
+    if (rollbackFailed) throw new EngineError('TRANSACTION_RECOVERY_REQUIRED', `Mutation failed and rollback was incomplete: ${(error as Error).message}`);
+    throw error;
+  }
+}
+
+export function recoverPendingTransaction(root: string): string | null {
+  const tx = readPendingTransaction(root);
+  if (!tx) return null;
+
+  for (const file of tx.files) {
+    const current = readTextIfExists(root, file.path);
+    if (current !== file.before && current !== file.after) throw new EngineError('RECOVERY_CONFLICT', `Cannot recover transaction ${tx.id}; ${file.path} differs from both before and after images`);
+  }
+
+  for (const file of tx.files) applyContent(root, file.path, file.after);
+  deleteRepositoryFile(root, TXN_RELATIVE_PATH);
+  return tx.operation;
+}

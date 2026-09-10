@@ -8,145 +8,105 @@ license: MIT
 
 AI-DLC Slim defines **what development process must be satisfied**. The currently active agent defines **how the work is executed**.
 
-Do not hardcode agent names, models, providers, MCPs, or orchestration frameworks. The active agent may work directly or delegate. Delegated workers may produce artifacts or code, but they may not approve gates, mutate AI-DLC state, or declare the workflow complete. The active parent agent reconciles their work and owns semantic verification.
+Do not hardcode agent names, models, providers, MCPs, or orchestration frameworks. Delegated workers may produce artifacts/code, but they may not approve gates, mutate AI-DLC control files, or declare the workflow complete. The active parent agent reconciles delegated work and owns semantic verification.
 
 ## Non-negotiable rules
 
-1. There is exactly one workflow cursor: `aidlc-docs/aidlc-state.json`.
-2. Durable project truth lives in `aidlc-docs/project/`; per-change work lives in `aidlc-docs/changes/<date>-<slug>/`.
-3. Never start a competing end-to-end lifecycle while an AI-DLC change is active. Delegation inside the current stage is allowed.
-4. Never claim completion from intent or worker reports. Completion requires current evidence from Verification.
-5. Never weaken, skip, delete, or rewrite a failing test/check merely to obtain a passing result without explicit user authorization.
-6. At a planning gate, `approve` means approve-and-hold. `continue`/`proceed` means approve-and-continue. Ambiguous approval means hold.
-7. Security requirements activate automatically when the change touches auth, authorization, secrets, PII, payments, uploads, external input, exposed APIs, production infrastructure, networking, or destructive operations.
-8. All lifecycle-state mutations go through the deterministic engine. Direct edits to `aidlc-state.json` are recovery-only.
-9. Workflow-routing decisions are persisted at initialization. If new evidence changes them before Implementation, use engine `reclassify`; do not edit state directly.
-10. Legal transitions and stage completion are governed by `references/transition-contract.md` and `references/completion-predicates.md`.
+1. `aidlc-docs/aidlc-state.json` is the only workflow cursor.
+2. All lifecycle mutations go through the engine; direct state edits are recovery-only.
+3. `aidlc-docs/.aidlc.lock` and `.aidlc-txn.json` are engine-owned control files. Never edit/delete them manually during normal work.
+4. Durable project truth lives in `aidlc-docs/project/`; per-change work lives in `aidlc-docs/changes/<date>-<slug>/`.
+5. Never start a competing end-to-end lifecycle while an AI-DLC change is active. Delegation inside the current stage is allowed.
+6. Never claim completion from intent or worker reports. Completion requires current Verification evidence.
+7. Never weaken/skip/delete a failing test or check merely to obtain PASS without explicit user authorization.
+8. At a planning gate, `approve` means approve-and-hold; `continue` means approve-and-continue. Ambiguity means hold.
+9. Security activates automatically for auth, authorization, secrets, PII, payments, uploads, external input, exposed APIs, production infrastructure, networking, or destructive operations.
+10. If the engine reports `RECOVERY_REQUIRED`, `WORKFLOW_LOCKED`, migration required, or invalid state, do not bypass it. Use `doctor`/`migrate` or surface the blocker.
 
 ## Engine
 
-Engine source is under `engine/`. Build it after installation:
+Normal use is zero-setup with Node.js 20+:
 
 ```bash
-cd .agents/skills/aidlc-workflows/engine
-npm install
-npm run build
+node .agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs <command>
 ```
 
-From the managed project, invoke:
+When the Skill is installed outside the project, add `--root <project-root>`.
 
-```bash
-node .agents/skills/aidlc-workflows/engine/dist/src/cli.js <command>
-```
+Use `status` and `next` for read-only inspection. Mutations use `init`, `migrate`, `reclassify`, lifecycle `report`, `approve`, `continue`, `request-changes`, `block`, `unblock`, or `cancel`.
 
-When the Skill is installed elsewhere, invoke that engine path with `--root <project-root>`.
+`doctor` diagnoses runtime/state/lock/transaction/path health. `doctor --repair` may remove only malformed/provably stale locks, recover a non-conflicting interrupted transaction, and migrate schema-v1 state. Do not manually force recovery around an apparently live lock or a `RECOVERY_CONFLICT`.
 
-Use `next` and `status` for read-only inspection. Use `init`, `reclassify`, `report`, `approve`, `continue`, `request-changes`, `block`, and `unblock` for lifecycle mutations. Never edit the state file as the normal progression mechanism.
-
-## Preflight — automatic, not a user-facing stage
-
-At the start of every invocation:
+## Preflight — automatic
 
 1. Read `AGENTS.md` if present.
-2. If `aidlc-docs/aidlc-state.json` exists, call engine `status` and `next`; resume the active change rather than silently creating another.
-3. Load only project-baseline documents relevant to the task.
-4. Inspect source/configuration needed to ground the change.
-5. If the project baseline is missing, stale, or materially incomplete, follow `references/project-baseline.md`.
-6. For a new change, classify Low/Standard/High risk and decide the five workflow flags.
-7. Initialize those decisions and the original request through engine `init`.
-8. If later Requirements/repository inspection changes risk or routing before Implementation, call engine `reclassify`; it invalidates Plan approval/downstream progress conservatively.
+2. Run engine `doctor`. If it reports a repairable stale condition, use `doctor --repair`; otherwise stop on failures.
+3. If state exists, run `status` and `next` and resume it unless terminal.
+4. Load only relevant project-baseline documents and inspect source/configuration needed for the request.
+5. For a new change, classify Low/Standard/High risk and decide the five workflow flags.
+6. Initialize via engine `init`, preserving the original request.
+7. If new pre-Implementation evidence changes routing, use `reclassify`; never edit state directly.
 
-Preflight should not produce ceremony or an approval prompt unless it discovers a consequential ambiguity.
+Preflight is not a user-facing stage and should not create ceremony.
 
 ## Risk profiles
 
-**Low** — isolated, reversible, no meaningful security/data/architecture impact. Default flow: Requirements → Plan → Implement → Verify. A gate/review/acceptance may still be enabled explicitly when warranted.
+**Low** — isolated, reversible, no meaningful security/data/architecture impact. Default: Requirements → Plan → Implement → Verify.
 
-**Standard** — multiple files/components, user-visible behavior, API/data-model impact, or moderate rollback/testing complexity. Planning gate and final acceptance are required; Design and Review are explicit decisions.
+**Standard** — multiple files/components, user-visible behavior, API/data-model impact, or moderate rollback/testing complexity. Planning gate and final acceptance are required; Design/Review are explicit decisions.
 
-**High** — auth/authorization, sensitive data, migrations, public contracts, infrastructure/deployment, difficult rollback, architecture boundaries, broad refactors, or other production-critical work. Design, planning gate, independent Review, and final acceptance are required.
+**High** — auth/authorization, sensitive data, migrations, public contracts, infrastructure/deployment, difficult rollback, architecture boundaries, broad refactors, or production-critical work. Design, planning gate, independent Review, and final acceptance are required.
 
-If uncertain between two levels, choose the higher level. The engine validates persisted risk/flag invariants.
+If uncertain, choose the higher risk. The engine validates risk/flag invariants.
 
-## Stage 1 — Requirements
+## Requirements
 
-Load `references/requirements.md`. Create the Requirements artifact, then report `requirements_complete`. The engine accepts the transition only when its mechanically testable predicate passes.
+Load `references/requirements.md`, create `requirements.md`, then report `requirements_complete`. Requirements always execute with depth proportional to the change. User stories and NFRs are sections, not separate stages.
 
-Requirements always execute, but depth is proportional to the change. Capture behavior, invariants, acceptance criteria, constraints, and explicit non-goals. Ask only questions whose answers materially change requirements, design, risk, or verification.
+## Design — conditional
 
-User stories and NFRs are sections inside `requirements.md` when useful; they are not separate lifecycle stages.
+When `workflow.design_required=true`, load `references/design.md`, create `design.md`, then report `design_complete`. Use Design only for consequential structure/contracts/data/security/infrastructure/failure/migration decisions.
 
-## Stage 2 — Design (conditional)
+## Plan
 
-Execute only when `workflow.design_required=true`. Load `references/design.md`, create the artifact, then report `design_complete`.
+Load `references/plan.md`, create an executable Plan with Work checkboxes and verification strategy, then report `plan_complete`.
 
-Design is required when the change affects architecture, component/service boundaries, contracts, schemas, data flow, security boundaries, infrastructure, migration behavior, failure/recovery behavior, or another consequential technical decision.
+If a planning gate opens:
 
-If an approved design changes durable project architecture, update the project baseline during implementation and create an ADR only when the rationale should survive future refactors.
+- `approve` → approved hold; stop.
+- `continue` → implementation authorized.
+- `request-changes` → reopen Plan.
 
-## Stage 3 — Plan
+## Implementation
 
-Load `references/plan.md`. Create a concrete executable plan, including affected areas, ordered work, dependencies, verification strategy, and rollback/migration notes when relevant. Then report `plan_complete`.
+Load `references/implementation.md`. Execute the approved/current Plan using the active runtime. Delegation and parallelism are allowed, but the parent agent reconciles work, preserves unrelated changes, keeps Plan checkboxes current, and updates durable project context when project truth changes.
 
-Work units may support parallel/delegated execution, but AI-DLC never prescribes which agent performs them.
+Report `implementation_complete` only when the implementation predicate passes. The engine routes to Review or Verification.
 
-### Planning gate
+## Review — conditional
 
-If `workflow.planning_gate_required=true`, `plan_complete` opens the planning gate.
+When required, load `references/review.md`; obtain independent review and record an explicit verdict. `review_pass` routes forward; `review_fail` returns to Implementation and invalidates downstream progress.
 
-Classify the user's response into exactly one engine command:
+## Verification
 
-- **`approve`** — approve-and-hold. Do not start Implementation.
-- **`continue`** — approve-and-continue. Enter Implementation.
-- **`request-changes`** — reopen Plan for revision.
+Load `references/verification.md`. Map every acceptance criterion to actual evidence. Anything not checked is `NOT VERIFIED`. Report `verification_complete` only after writing the evidence artifact.
 
-Approval plus an explicit instruction not to continue is `approve`. Ambiguity is `approve`.
+If Final Acceptance is required, explicit acceptance uses `report accept`; requested changes use `request-changes` and return to Implementation.
 
-## Stage 4 — Implementation
+## Cancellation
 
-Load `references/implementation.md` and execute the approved/current Plan using the active runtime. The active agent may delegate, parallelize independent work, or call tools. AI-DLC imposes no routing policy.
+If the user abandons the change, use `cancel --reason <text>`. Cancellation is terminal, preserves artifacts/audit/source, and permits a later new change. Do not delete the active state file to simulate cancellation.
 
-The active parent agent must preserve unrelated changes, reconcile delegated output, keep Plan Work checkboxes current, return upstream if a consequential new decision appears, and update durable project-baseline documents when implementation changes project truth.
+## Contracts
 
-When implementation work is complete, report `implementation_complete`. The engine routes to Review or Verification according to persisted workflow flags.
+Load only when relevant:
 
-## Review — conditional lifecycle state
-
-When `workflow.review_required=true`, load `references/review.md`. Obtain an independent review using an available review capability and record an explicit verdict in `review.md`.
-
-- report `review_pass` for `Verdict: PASS`;
-- report `review_fail` for a blocking `FAIL`/`CHANGES_REQUIRED` verdict.
-
-A failed review returns to Implementation and invalidates downstream Review/Verification progress. If implementation changes after review, review again.
-
-## Stage 5 — Verification
-
-Load `references/verification.md`. Run checks appropriate to the changed area and map every acceptance criterion to actual evidence. User-visible behavior should be exercised in the real product surface when the environment permits it.
-
-Anything not actually checked is `NOT VERIFIED`, not inferred as passing. Create `verification.md`, then report `verification_complete`. A mandatory failed criterion blocks the transition.
-
-## Final acceptance
-
-If `workflow.final_acceptance_required=true`, successful Verification opens Final Acceptance. Explicit user acceptance is reported with `report accept`; requested changes use `request-changes` and return to Implementation with downstream evidence invalidated.
-
-If final acceptance is not required, successful Verification completes the workflow directly.
-
-## State, transitions, and audit
-
-Load these contracts only when relevant:
-
-- `references/state.md` — canonical JSON state and ownership.
-- `references/transition-contract.md` — legal events/transitions, reclassification, and invariants.
-- `references/completion-predicates.md` — minimum completion requirements.
-- `references/engine-contract.md` — engine/agent boundary.
+- `references/state.md` — schema, revision, lock, transaction, recovery, terminal states.
+- `references/transition-contract.md` — legal sequencing and hardening invariants.
+- `references/completion-predicates.md` — mechanically testable completion requirements.
+- `references/engine-contract.md` — agent/engine authority boundary.
 - `schemas/aidlc-state.schema.json` — canonical external state schema.
-
-Audit only events Git does not capture well: original request, material answers, gate decisions, consequential design/risk decisions, explicit risk acceptance, material recovery, and final acceptance. The engine writes its lifecycle/reclassification audit events; the active agent appends semantic decisions outside engine events when necessary.
-
-## Security
-
-Load `references/security.md` automatically when `workflow.security_required=true`. Security is not an opt-in extension.
 
 ## Context discipline
 
-Call engine `next` to determine the current lifecycle directive, then load only the current stage reference plus relevant project/change artifacts. Do not preload every reference file. Source code/configuration are authoritative for mechanically discoverable facts; durable docs contain decisions, constraints, commands, and architectural context that are expensive or ambiguous to rediscover.
+Use engine `next` to determine the current lifecycle directive, then load only that stage's reference plus relevant project/change artifacts. Source/configuration are authoritative for mechanically discoverable facts; durable docs should store decisions, constraints, commands, and architectural context that are expensive or ambiguous to rediscover.
