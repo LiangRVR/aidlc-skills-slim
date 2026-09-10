@@ -1,5 +1,6 @@
 import { EngineError } from './errors.js';
 import { applyEvent, blockState, createInitialState, nextDirective, unblockState } from './machine.js';
+import { reclassifyState, type ReclassifyInput } from './reclassify.js';
 import { appendAudit, changeDirectoryExists, readState, readStateBytes, removeChangeDirectory, restoreStateBytes, writeRequestFile, writeStateAtomic } from './storage.js';
 import type { AidlcState, InitInput, LifecycleEvent, NextDirective } from './types.js';
 
@@ -55,6 +56,20 @@ export class AidlcEngine {
   approve(): AidlcState { return this.mutate('approve'); }
   continue(): AidlcState { return this.mutate('continue'); }
   requestChanges(): AidlcState { return this.mutate('request_changes'); }
+
+  reclassify(input: ReclassifyInput): AidlcState {
+    const current = this.status();
+    const previousBytes = readStateBytes(this.root);
+    const next = reclassifyState(current, input);
+    writeStateAtomic(this.root, next);
+    try {
+      appendAudit(this.root, next, 'reclassify', `Risk: ${current.risk} -> ${next.risk}\nRisk rationale: ${next.risk_rationale}\nWorkflow: ${JSON.stringify(next.workflow)}`);
+    } catch (error) {
+      restoreStateBytes(this.root, previousBytes);
+      throw new EngineError('AUDIT_WRITE_FAILED', `Lifecycle state was rolled back because audit append failed: ${(error as Error).message}`);
+    }
+    return next;
+  }
 
   block(reason: string): AidlcState {
     const current = this.status();
