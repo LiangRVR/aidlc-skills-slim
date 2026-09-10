@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { EngineError } from './errors.js';
-import { deleteRepositoryFile, parseJson, readTextIfExists, repositoryPath, TXN_RELATIVE_PATH, writeTextAtomic } from './storage.js';
+import { deleteRepositoryFile, MAX_TRANSACTION_BYTES, parseJson, readTextIfExists, repositoryPath, TXN_RELATIVE_PATH, writeTextAtomic } from './storage.js';
 import { ENGINE_VERSION } from './types.js';
 
 interface TransactionFile {
@@ -23,10 +24,6 @@ export interface FileMutation {
   after: string | null;
 }
 
-function randomId(): string {
-  return `${Date.now()}-${process.pid}-${Math.random().toString(16).slice(2)}`;
-}
-
 function validateTransaction(value: unknown): TransactionRecord {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new EngineError('INVALID_TRANSACTION', 'Transaction record must be an object');
   const tx = value as Partial<TransactionRecord>;
@@ -47,7 +44,7 @@ export function pendingTransactionExists(root: string): boolean {
 }
 
 export function readPendingTransaction(root: string): TransactionRecord | null {
-  const raw = readTextIfExists(root, TXN_RELATIVE_PATH);
+  const raw = readTextIfExists(root, TXN_RELATIVE_PATH, MAX_TRANSACTION_BYTES);
   if (raw === null) return null;
   return validateTransaction(parseJson(raw, TXN_RELATIVE_PATH));
 }
@@ -74,12 +71,16 @@ export function commitTransaction(root: string, operation: string, mutations: Fi
   const tx: TransactionRecord = {
     transaction_version: 1,
     engine_version: ENGINE_VERSION,
-    id: randomId(),
+    id: randomUUID(),
     operation,
     started_at: new Date().toISOString(),
     files,
   };
-  writeTextAtomic(root, TXN_RELATIVE_PATH, `${JSON.stringify(tx, null, 2)}\n`);
+  const body = `${JSON.stringify(tx, null, 2)}\n`;
+  if (Buffer.byteLength(body, 'utf8') > MAX_TRANSACTION_BYTES) {
+    throw new EngineError('TRANSACTION_TOO_LARGE', `Transaction exceeds ${MAX_TRANSACTION_BYTES} bytes`);
+  }
+  writeTextAtomic(root, TXN_RELATIVE_PATH, body);
 
   const applied: TransactionFile[] = [];
   try {
