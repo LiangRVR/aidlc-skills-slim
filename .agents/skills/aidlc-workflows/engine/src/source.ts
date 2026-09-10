@@ -64,17 +64,13 @@ function parseNameStatus(raw: string): Array<{ status: string; path: string; pre
       const split = status.split('\t');
       status = split.shift()!;
       path = split.join('\t');
-    } else {
-      path = tokens[i++];
-    }
+    } else path = tokens[i++];
     if (!path) throw new EngineError('SOURCE_SNAPSHOT_UNAVAILABLE', 'Unable to parse git name-status output');
     if (status.startsWith('R') || status.startsWith('C')) {
       const newPath = tokens[i++];
       if (!newPath) throw new EngineError('SOURCE_SNAPSHOT_UNAVAILABLE', 'Unable to parse git rename/copy output');
       result.push({ status, path: newPath, previous_path: path });
-    } else {
-      result.push({ status, path, previous_path: null });
-    }
+    } else result.push({ status, path, previous_path: null });
   }
   return result;
 }
@@ -111,14 +107,7 @@ export function captureSourceSnapshot(root: string): SourceSnapshot {
   const base = baseTree(root);
   const records = collectRecords(root, base.hasHead);
   const digest = canonicalDigest({ base_tree: base.tree, records: records.map(({ status, path, previous_path, sha256 }) => ({ status, path, previous_path, sha256 })) });
-  return {
-    snapshot_version: 1,
-    mode: 'git',
-    captured_at: new Date().toISOString(),
-    base_tree: base.tree,
-    digest,
-    records,
-  };
+  return { snapshot_version: 1, mode: 'git', captured_at: new Date().toISOString(), base_tree: base.tree, digest, records };
 }
 
 export function tryCaptureSourceSnapshot(root: string): { snapshot: SourceSnapshot | null; reason: string | null } {
@@ -135,33 +124,40 @@ function statusName(status: string): SourceManifestEntry['status'] {
   return 'changed';
 }
 
-export function buildSourceManifest(baseline: SourceSnapshot | null, current: SourceSnapshot): { manifest: SourceManifestEntry[]; digest: string } {
+export function buildSourceManifest(root: string, baseline: SourceSnapshot | null, current: SourceSnapshot): { manifest: SourceManifestEntry[]; digest: string } {
   if (!baseline) {
     const manifest = current.records.map((record) => ({ status: statusName(record.status), path: record.path, previous_path: record.previous_path, sha256: record.sha256 }));
     return { manifest, digest: canonicalDigest(manifest) };
   }
 
-  const before = new Map(baseline.records.map((record) => [record.path, `${record.status}\0${record.previous_path ?? ''}\0${record.sha256 ?? ''}`]));
-  const after = new Map(current.records.map((record) => [record.path, `${record.status}\0${record.previous_path ?? ''}\0${record.sha256 ?? ''}`]));
-  const changed = new Set<string>();
-  for (const [path, value] of after) if (before.get(path) !== value) changed.add(path);
-  for (const path of before.keys()) if (!after.has(path)) changed.add(path);
+  const baselineRecords = new Map(baseline.records.map((record) => [record.path, record]));
+  const currentRecords = new Map(current.records.map((record) => [record.path, record]));
+  const candidates = new Map<string, { status: string; path: string; previous_path: string | null }>();
 
-  if (baseline.base_tree !== current.base_tree) {
-    try {
-      const raw = runGit(process.cwd() === '' ? '.' : '.', [], true);
-      void raw;
-    } catch {}
-    for (const record of current.records) changed.add(record.path);
+  for (const [path, record] of currentRecords) {
+    const old = baselineRecords.get(path);
+    if (!old || old.status !== record.status || old.previous_path !== record.previous_path || old.sha256 !== record.sha256) candidates.set(path, record);
+  }
+  for (const [path, old] of baselineRecords) {
+    if (!currentRecords.has(path)) candidates.set(path, { status: 'D', path, previous_path: old.previous_path });
   }
 
-  const currentByPath = new Map(current.records.map((record) => [record.path, record]));
-  const baselineByPath = new Map(baseline.records.map((record) => [record.path, record]));
-  const manifest: SourceManifestEntry[] = [...changed].sort().map((path) => {
-    const record = currentByPath.get(path);
-    if (record) return { status: statusName(record.status), path: record.path, previous_path: record.previous_path, sha256: record.sha256 };
-    const old = baselineByPath.get(path)!;
-    return { status: 'changed', path, previous_path: old.previous_path, sha256: null };
-  });
-  return { manifest, digest: canonicalDigest({ baseline_tree: baseline.base_tree, current_tree: current.base_tree, manifest }) };
+  if (baseline.base_tree !== current.base_tree) {
+    const raw = runGit(root, ['diff', '--name-status', '-z', '-M', baseline.base_tree, current.base_tree, '--']);
+    for (const item of parseNameStatus(raw)) {
+      if (isWorkflowPath(item.path) && (!item.previous_path || isWorkflowPath(item.previous_path))) continue;
+      candidates.set(item.path, item);
+    }
+  }
+
+  const manifest: SourceManifestEntry[] = [];
+  for (const item of [...candidates.values()].sort((a, b) => a.path.localeCompare(b.path))) {
+    const currentHash = hashSourceFile(root, item.path);
+    const baselineDirty = baselineRecords.get(item.path);
+    if (baselineDirty && baselineDirty.sha256 === currentHash && baselineDirty.previous_path === item.previous_path) continue;
+    manifest.push({ status: statusName(item.status), path: item.path, previous_path: item.previous_path, sha256: currentHash });
+  }
+
+  if (manifest.length > MAX_SOURCE_RECORDS) throw new EngineError('SOURCE_MANIFEST_TOO_LARGE', `Source manifest has more than ${MAX_SOURCE_RECORDS} entries`);
+  return { manifest, digest: canonicalDigest({ baseline_digest: baseline.digest, current_digest: current.digest, manifest }) };
 }
