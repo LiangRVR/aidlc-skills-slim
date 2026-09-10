@@ -42,17 +42,17 @@ State schema v2 adds `engine_version` and a monotonically increasing `revision`.
 
 `cancel` preserves the change directory and audit, marks the workflow terminal, and allows a later change to initialize without direct state editing.
 
-Artifact reads are repository-contained, resolve real filesystem paths, and have a 2 MiB size ceiling to prevent symlink escapes and unbounded synchronous reads.
+Artifact reads and control-file writes are repository-contained through real filesystem paths, including parent-directory symlink checks. Workflow artifacts have a 2 MiB size ceiling and transaction journals have a 16 MiB ceiling to prevent unbounded synchronous parsing/recovery records.
 
 ## Development
 
 ```bash
 npm install
 npm test
-npm run check-runtime
+npm run test-runtime
 ```
 
-`sync-runtime` compiles `src/` and copies only generated JavaScript into the committed `runtime/` directory. CI verifies that the committed runtime matches the TypeScript source.
+`sync-runtime` remains available to regenerate the committed JavaScript from `src/`. CI does not rely on emitted formatting as a correctness signal: on Linux, macOS, and Windows it runs the same full contract/hardening suite against both the compiled TypeScript implementation and the committed zero-setup runtime, then smoke-tests the CLI. This catches semantic runtime drift while remaining stable across harmless compiler-format changes.
 
 ## Deferred to v0.2
 
