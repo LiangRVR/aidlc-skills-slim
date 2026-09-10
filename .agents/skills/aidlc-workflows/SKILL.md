@@ -20,12 +20,12 @@ Do not hardcode agent names, models, providers, MCPs, or orchestration framework
 6. At a planning gate, `approve` means approve-and-hold. `continue`/`proceed` means approve-and-continue. Ambiguous approval means hold.
 7. Security requirements activate automatically when the change touches auth, authorization, secrets, PII, payments, uploads, external input, exposed APIs, production infrastructure, networking, or destructive operations.
 8. All lifecycle-state mutations go through the deterministic engine. Direct edits to `aidlc-state.json` are recovery-only.
-9. Workflow-routing decisions are persisted at initialization; do not repeatedly infer Design, gate, Review, acceptance, or security requirements afterward.
+9. Workflow-routing decisions are persisted at initialization. If new evidence changes them before Implementation, use engine `reclassify`; do not edit state directly.
 10. Legal transitions and stage completion are governed by `references/transition-contract.md` and `references/completion-predicates.md`.
 
 ## Engine
 
-Engine source is under `engine/`. Build it once after installation:
+Engine source is under `engine/`. Build it after installation:
 
 ```bash
 cd .agents/skills/aidlc-workflows/engine
@@ -41,7 +41,7 @@ node .agents/skills/aidlc-workflows/engine/dist/src/cli.js <command>
 
 When the Skill is installed elsewhere, invoke that engine path with `--root <project-root>`.
 
-Use `next` and `status` for read-only inspection. Use `init`, `report`, `approve`, `continue`, `request-changes`, `block`, `unblock`, and `report accept` for lifecycle mutations. Never edit the state file as the normal progression mechanism.
+Use `next` and `status` for read-only inspection. Use `init`, `reclassify`, `report`, `approve`, `continue`, `request-changes`, `block`, and `unblock` for lifecycle mutations. Never edit the state file as the normal progression mechanism.
 
 ## Preflight — automatic, not a user-facing stage
 
@@ -54,6 +54,7 @@ At the start of every invocation:
 5. If the project baseline is missing, stale, or materially incomplete, follow `references/project-baseline.md`.
 6. For a new change, classify Low/Standard/High risk and decide the five workflow flags.
 7. Initialize those decisions and the original request through engine `init`.
+8. If later Requirements/repository inspection changes risk or routing before Implementation, call engine `reclassify`; it invalidates Plan approval/downstream progress conservatively.
 
 Preflight should not produce ceremony or an approval prompt unless it discovers a consequential ambiguity.
 
@@ -135,12 +136,12 @@ If final acceptance is not required, successful Verification completes the workf
 Load these contracts only when relevant:
 
 - `references/state.md` — canonical JSON state and ownership.
-- `references/transition-contract.md` — legal events/transitions and invariants.
+- `references/transition-contract.md` — legal events/transitions, reclassification, and invariants.
 - `references/completion-predicates.md` — minimum completion requirements.
 - `references/engine-contract.md` — engine/agent boundary.
 - `schemas/aidlc-state.schema.json` — canonical external state schema.
 
-Audit only events Git does not capture well: original request, material answers, gate decisions, consequential design/risk decisions, explicit risk acceptance, material recovery, and final acceptance. The engine writes its lifecycle audit events; the active agent appends semantic decisions outside engine events when necessary.
+Audit only events Git does not capture well: original request, material answers, gate decisions, consequential design/risk decisions, explicit risk acceptance, material recovery, and final acceptance. The engine writes its lifecycle/reclassification audit events; the active agent appends semantic decisions outside engine events when necessary.
 
 ## Security
 
