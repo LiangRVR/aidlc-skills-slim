@@ -1,4 +1,5 @@
 declare const process: any;
+declare const Buffer: any;
 declare module 'node:fs' {
   export const appendFileSync: any; export const existsSync: any; export const lstatSync: any; export const mkdtempSync: any; export const mkdirSync: any; export const readFileSync: any; export const realpathSync: any; export const renameSync: any; export const rmSync: any; export const statSync: any; export const symlinkSync: any; export const writeFileSync: any; export const readdirSync: any; export const copyFileSync: any;
 }
