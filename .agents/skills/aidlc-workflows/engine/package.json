@@ -11,7 +11,7 @@
     "build": "tsc -p tsconfig.json",
     "sync-runtime": "npm run build && node scripts/sync-runtime.mjs",
     "check-runtime": "npm run sync-runtime && git diff --exit-code -- runtime",
-    "test": "npm run build && node --test dist/tests/*.test.js"
+    "test": "npm run build && node scripts/run-tests.mjs"
   },
   "devDependencies": {
     "typescript": "5.8.3"
