@@ -13,10 +13,13 @@ v0.1.1 additionally requires coverage for:
 - pending transaction blocks normal reads;
 - interrupted transaction roll-forward through `doctor --repair`;
 - schema-v1 migration to v2;
-- symlink escape rejection;
+- artifact symlink escape rejection;
+- parent-directory symlink write escape rejection;
 - oversized artifact rejection;
+- oversized transaction-journal rejection;
 - healthy-workflow `doctor` output;
-- committed runtime matches generated TypeScript output;
-- Node 20 CI on Linux, macOS, and Windows.
+- the same full test suite passes against both compiled TypeScript and the committed zero-setup runtime;
+- the packaged CLI smoke test passes;
+- Node 20 CI passes on Linux, macOS, and Windows.
 
-Rejected transitions and recovery conflicts must preserve persisted state rather than guessing.
+Rejected transitions and recovery conflicts must preserve persisted state rather than guessing. Runtime parity is behavioral: harmless compiler formatting differences are not treated as correctness failures, while semantic drift is caught by executing the same contract/hardening suite against both implementations.
