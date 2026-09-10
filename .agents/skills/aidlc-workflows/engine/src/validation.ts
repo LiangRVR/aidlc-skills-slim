@@ -1,12 +1,13 @@
 import { EngineError } from './errors.js';
+import { ENGINE_VERSION } from './types.js';
 import type { AidlcState, ProgressState, Risk, Stage, Status } from './types.js';
 
 const RISKS = new Set(['low', 'standard', 'high']);
 const STAGES = new Set([
-  'requirements', 'design', 'plan', 'implementation', 'review', 'verification', 'final_acceptance', 'complete',
+  'requirements', 'design', 'plan', 'implementation', 'review', 'verification', 'final_acceptance', 'complete', 'cancelled',
 ]);
 const STATUSES = new Set([
-  'active', 'awaiting_approval', 'approved_hold', 'blocked', 'awaiting_acceptance', 'complete',
+  'active', 'awaiting_approval', 'approved_hold', 'blocked', 'awaiting_acceptance', 'complete', 'cancelled',
 ]);
 const PROGRESS = new Set(['pending', 'active', 'complete', 'skipped', 'not_applicable']);
 const GATE_TYPES = new Set(['planning', 'final_acceptance']);
@@ -18,9 +19,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function exactKeys(obj: Record<string, unknown>, allowed: string[], label: string): void {
   const unknown = Object.keys(obj).filter((key) => !allowed.includes(key));
-  if (unknown.length) {
-    throw new EngineError('INVALID_STATE', `${label} contains unknown properties`, unknown);
-  }
+  if (unknown.length) throw new EngineError('INVALID_STATE', `${label} contains unknown properties`, unknown);
 }
 
 function assertBoolean(value: unknown, label: string): asserts value is boolean {
@@ -33,9 +32,11 @@ function assertString(value: unknown, label: string, allowNull = false): asserts
 }
 
 function assertEnum(value: unknown, allowed: Set<string>, label: string): asserts value is string {
-  if (typeof value !== 'string' || !allowed.has(value)) {
-    throw new EngineError('INVALID_STATE', `${label} has invalid value: ${String(value)}`);
-  }
+  if (typeof value !== 'string' || !allowed.has(value)) throw new EngineError('INVALID_STATE', `${label} has invalid value: ${String(value)}`);
+}
+
+function assertNonNegativeInteger(value: unknown, label: string, min = 0): asserts value is number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < min) throw new EngineError('INVALID_STATE', `${label} must be an integer >= ${min}`);
 }
 
 export function assertWorkflowInvariants(state: AidlcState): void {
@@ -49,10 +50,11 @@ export function assertWorkflowInvariants(state: AidlcState): void {
     ].filter(([, enabled]) => !enabled).map(([name]) => String(name));
     if (missing.length) throw new EngineError('INVALID_WORKFLOW', 'High-risk workflow requires design, planning gate, review, and final acceptance', missing);
   }
-
   if (state.risk === 'standard' && (!w.planning_gate_required || !w.final_acceptance_required)) {
     throw new EngineError('INVALID_WORKFLOW', 'Standard-risk workflow requires a planning gate and final acceptance');
   }
+
+  const terminal = state.stage === 'complete' || state.stage === 'cancelled';
 
   if (!w.design_required) {
     if (state.progress.design !== 'not_applicable') throw new EngineError('INVALID_STATE', 'Design progress must be not_applicable when design_required=false');
@@ -84,17 +86,15 @@ export function assertWorkflowInvariants(state: AidlcState): void {
   }
 
   if (state.stage === 'plan' && state.status === 'awaiting_approval') {
-    if (!state.workflow.planning_gate_required || state.gate?.type !== 'planning' || state.gate.status !== 'open') {
+    if (!w.planning_gate_required || state.gate?.type !== 'planning' || state.gate.status !== 'open') {
       throw new EngineError('INVALID_STATE', 'Awaiting planning approval requires an open planning gate');
     }
   }
-
   if (state.stage === 'plan' && state.status === 'approved_hold') {
     if (state.gate?.type !== 'planning' || state.gate.status !== 'approved_hold') {
       throw new EngineError('INVALID_STATE', 'approved_hold requires planning gate status approved_hold');
     }
   }
-
   if (state.stage === 'final_acceptance') {
     if (state.status !== 'awaiting_acceptance' || state.gate?.type !== 'final_acceptance' || state.gate.status !== 'open') {
       throw new EngineError('INVALID_STATE', 'Final acceptance stage requires an open final-acceptance gate');
@@ -103,30 +103,37 @@ export function assertWorkflowInvariants(state: AidlcState): void {
 
   if (state.stage === 'complete') {
     if (state.status !== 'complete') throw new EngineError('INVALID_STATE', 'Complete stage requires complete status');
-    if (state.gate !== null) throw new EngineError('INVALID_STATE', 'Complete state must not have an active gate');
-    if (state.blockers.length) throw new EngineError('INVALID_STATE', 'Complete state cannot have blockers');
+    if (state.gate !== null || state.blockers.length) throw new EngineError('INVALID_STATE', 'Complete state must not have a gate or blockers');
     const requiredComplete: Array<[string, ProgressState]> = [
       ['requirements', state.progress.requirements],
       ['plan', state.progress.plan],
       ['implementation', state.progress.implementation],
       ['verification', state.progress.verification],
     ];
-    for (const [name, progress] of requiredComplete) {
-      if (progress !== 'complete') throw new EngineError('INVALID_STATE', `Complete workflow requires ${name}=complete`);
-    }
+    for (const [name, progress] of requiredComplete) if (progress !== 'complete') throw new EngineError('INVALID_STATE', `Complete workflow requires ${name}=complete`);
     if (w.design_required && state.progress.design !== 'complete') throw new EngineError('INVALID_STATE', 'Complete workflow requires design=complete');
     if (w.review_required && state.progress.review !== 'complete') throw new EngineError('INVALID_STATE', 'Complete workflow requires review=complete');
     if (w.final_acceptance_required && state.progress.final_acceptance !== 'complete') throw new EngineError('INVALID_STATE', 'Complete workflow requires final_acceptance=complete');
   } else if (state.status === 'complete') {
     throw new EngineError('INVALID_STATE', 'status=complete is only valid at stage=complete');
   }
+
+  if (state.stage === 'cancelled') {
+    if (state.status !== 'cancelled') throw new EngineError('INVALID_STATE', 'Cancelled stage requires cancelled status');
+    if (state.gate !== null || state.blockers.length) throw new EngineError('INVALID_STATE', 'Cancelled state must not have a gate or blockers');
+  } else if (state.status === 'cancelled') {
+    throw new EngineError('INVALID_STATE', 'status=cancelled is only valid at stage=cancelled');
+  }
+
+  if (!terminal && state.active_change === null) throw new EngineError('INVALID_STATE', 'active_change is required for an active workflow');
 }
 
 export function assertValidState(value: unknown): asserts value is AidlcState {
   if (!isObject(value)) throw new EngineError('INVALID_STATE', 'State must be a JSON object');
-  exactKeys(value, ['schema_version', 'active_change', 'risk', 'risk_rationale', 'workflow', 'stage', 'status', 'gate', 'artifacts', 'progress', 'blockers'], 'state');
-
-  if (value.schema_version !== 1) throw new EngineError('INVALID_STATE', 'schema_version must be 1');
+  exactKeys(value, ['schema_version', 'engine_version', 'revision', 'active_change', 'risk', 'risk_rationale', 'workflow', 'stage', 'status', 'gate', 'artifacts', 'progress', 'blockers'], 'state');
+  if (value.schema_version !== 2) throw new EngineError('STATE_MIGRATION_REQUIRED', `Unsupported schema_version: ${String(value.schema_version)}; run aidlc-engine migrate`);
+  if (typeof value.engine_version !== 'string' || !value.engine_version.trim()) throw new EngineError('INVALID_STATE', 'engine_version must be a non-empty string');
+  assertNonNegativeInteger(value.revision, 'revision', 1);
   assertString(value.active_change, 'active_change', true);
   assertEnum(value.risk, RISKS, 'risk');
   assertString(value.risk_rationale, 'risk_rationale');
@@ -135,9 +142,7 @@ export function assertValidState(value: unknown): asserts value is AidlcState {
 
   if (!isObject(value.workflow)) throw new EngineError('INVALID_STATE', 'workflow must be an object');
   exactKeys(value.workflow, ['design_required', 'planning_gate_required', 'review_required', 'final_acceptance_required', 'security_required'], 'workflow');
-  for (const key of ['design_required', 'planning_gate_required', 'review_required', 'final_acceptance_required', 'security_required']) {
-    assertBoolean(value.workflow[key], `workflow.${key}`);
-  }
+  for (const key of ['design_required', 'planning_gate_required', 'review_required', 'final_acceptance_required', 'security_required']) assertBoolean(value.workflow[key], `workflow.${key}`);
 
   if (value.gate !== null) {
     if (!isObject(value.gate)) throw new EngineError('INVALID_STATE', 'gate must be object or null');
@@ -148,24 +153,15 @@ export function assertValidState(value: unknown): asserts value is AidlcState {
 
   if (!isObject(value.artifacts)) throw new EngineError('INVALID_STATE', 'artifacts must be an object');
   exactKeys(value.artifacts, ['request', 'requirements', 'design', 'plan', 'review', 'verification'], 'artifacts');
-  for (const key of ['request', 'requirements', 'design', 'plan', 'review', 'verification']) {
-    assertString(value.artifacts[key], `artifacts.${key}`, true);
-  }
+  for (const key of ['request', 'requirements', 'design', 'plan', 'review', 'verification']) assertString(value.artifacts[key], `artifacts.${key}`, true);
 
   if (!isObject(value.progress)) throw new EngineError('INVALID_STATE', 'progress must be an object');
   exactKeys(value.progress, ['requirements', 'design', 'plan', 'implementation', 'review', 'verification', 'final_acceptance'], 'progress');
-  for (const key of ['requirements', 'design', 'plan', 'implementation', 'review', 'verification', 'final_acceptance']) {
-    assertEnum(value.progress[key], PROGRESS, `progress.${key}`);
-  }
+  for (const key of ['requirements', 'design', 'plan', 'implementation', 'review', 'verification', 'final_acceptance']) assertEnum(value.progress[key], PROGRESS, `progress.${key}`);
 
-  if (!Array.isArray(value.blockers) || value.blockers.some((item) => typeof item !== 'string')) {
-    throw new EngineError('INVALID_STATE', 'blockers must be an array of strings');
-  }
+  if (!Array.isArray(value.blockers) || value.blockers.some((item) => typeof item !== 'string' || !item.trim())) throw new EngineError('INVALID_STATE', 'blockers must be an array of non-empty strings');
 
   const state = value as unknown as AidlcState;
-  if (state.active_change === null && state.stage !== 'complete') {
-    throw new EngineError('INVALID_STATE', 'active_change may be null only outside an active workflow');
-  }
   assertWorkflowInvariants(state);
 }
 
@@ -179,4 +175,11 @@ export function assertLifecycleStage(value: string): asserts value is Stage {
 
 export function assertLifecycleStatus(value: string): asserts value is Status {
   if (!STATUSES.has(value)) throw new EngineError('INVALID_ARGUMENT', `Invalid status: ${value}`);
+}
+
+export function ensureCurrentEngineVersion(state: AidlcState): AidlcState {
+  if (state.engine_version !== ENGINE_VERSION) {
+    // Engine-version drift is informational; schema validation is authoritative.
+  }
+  return state;
 }

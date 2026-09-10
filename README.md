@@ -1,10 +1,10 @@
 # AI-DLC Skills Slim
 
-A slim, runtime-agnostic adaptation of AWS AI-DLC v1 for structured AI-assisted software development, with a deterministic state engine.
+A slim, runtime-agnostic adaptation of AWS AI-DLC v1 for structured AI-assisted software development, with a deterministic lifecycle engine.
 
-This fork keeps the useful lifecycle discipline from `qtalen/aidlc-skills` while removing overlapping stages, verbose ceremony, duplicate state, and runtime-specific orchestration assumptions.
+This fork keeps the useful AI-DLC discipline from `qtalen/aidlc-skills` while removing overlapping stages, duplicate state, verbose ceremony, and runtime-specific orchestration assumptions.
 
-## Core lifecycle
+## Lifecycle
 
 ```text
 Preflight (automatic)
@@ -28,60 +28,42 @@ Final Acceptance (when required)
 Complete
 ```
 
-Workflow routing is decided during Preflight and persisted. If new evidence changes that routing before Implementation, the engine provides an explicit `reclassify` mutation. After that, the deterministic engine enforces legal sequencing and gates.
+The active agent decides semantic routing and how work is executed. The engine enforces state, sequencing, gates, recovery, and mechanically testable completion predicates. AI-DLC Slim never hardcodes OMO Slim, model names, providers, tools, or specialist routing.
 
-## Responsibility split
+## Engine v0.1.1
 
-AI-DLC Slim owns lifecycle, workflow state, approval semantics, project/change artifacts, completion requirements, and verification expectations.
-
-The currently active agent/runtime owns execution strategy, delegation/parallelism, model/provider selection, tool/MCP selection, and specialist routing.
-
-The Skill never hardcodes OMO Slim or any other orchestration framework. OMO can remain the active orchestrator without AI-DLC depending on it.
-
-## Deterministic engine v0.1
-
-The engine lives under:
-
-```text
-.agents/skills/aidlc-workflows/engine/
-```
-
-It is written in TypeScript, requires Node.js 20+, and has zero runtime dependencies. TypeScript is used only to build/test the engine.
-
-Build it after installing the Skill source:
+The Skill includes a prebuilt Node.js 20+ runtime. Normal use requires no npm install or TypeScript build:
 
 ```bash
-cd .agents/skills/aidlc-workflows/engine
-npm install
-npm run build
+node .agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs status
+node .agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs next
 ```
 
-Then use:
-
-```bash
-node .agents/skills/aidlc-workflows/engine/dist/src/cli.js status
-node .agents/skills/aidlc-workflows/engine/dist/src/cli.js next
-```
-
-The command surface is intentionally small:
+Key commands:
 
 ```text
 init
-next                         # read-only
-status                       # read-only
-reclassify                   # pre-Implementation routing change
-report <lifecycle-event>
-approve                       # planning approval + HOLD
-continue                      # planning approval/continuation
+next / status               read-only
+doctor [--repair]
+migrate                     schema v1 -> v2
+reclassify                   pre-Implementation routing change
+report <event>
+approve                      approve + HOLD
+continue                     approve/continue
 request-changes
 block / unblock
+cancel --reason "..."
 ```
 
-The engine enforces `approve != continue`, risk/workflow invariants, legal transitions, blockers, required artifact predicates, review routing, final acceptance, and conservative downstream invalidation after rework. Rejected transitions leave the persisted state unchanged.
+## Hardening guarantees
 
-`reclassify` replaces the complete risk/routing decision set before Implementation. It clears planning approval, preserves completed Requirements, preserves completed Design only when still applicable, and resets Plan plus downstream progress. If Design becomes newly required, the workflow routes through Design before a fresh Plan.
+State schema v2 stores `engine_version` and a monotonically increasing `revision`. Every mutation is protected by an exclusive `aidlc-docs/.aidlc.lock` and committed through `aidlc-docs/.aidlc-txn.json`, a write-ahead transaction journal. Interrupted transactions block normal progression until `doctor --repair` can safely roll them forward or reports a recovery conflict.
 
-## State contract
+`cancel` provides a normal terminal path for abandoned work without deleting artifacts. Existing workflow artifacts are read through repository-containment and size checks, and control-file writes validate their real parent path so symlinked directories cannot redirect state outside the project. Workflow artifacts are capped at 2 MiB and transaction journals at 16 MiB.
+
+The committed JavaScript runtime under `engine/runtime/` provides zero-setup execution while TypeScript remains the maintainable source. CI runs the same contract/hardening suite against both implementations on Linux, macOS, and Windows, then smoke-tests the packaged CLI.
+
+## State and project context
 
 The only workflow cursor is:
 
@@ -89,46 +71,7 @@ The only workflow cursor is:
 aidlc-docs/aidlc-state.json
 ```
 
-Its canonical external schema lives at:
-
-```text
-.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json
-```
-
-Preflight persists these decisions:
-
-- `design_required`
-- `planning_gate_required`
-- `review_required`
-- `final_acceptance_required`
-- `security_required`
-
-The contract is split into:
-
-- `references/state.md` — state ownership/model;
-- `references/transition-contract.md` — legal transitions, reclassification, and risk invariants;
-- `references/completion-predicates.md` — minimum completion requirements;
-- `references/engine-contract.md` — agent/engine boundary.
-
-## Approval semantics
-
-At a planning gate:
-
-```text
-approve
-→ approve-and-hold
-→ do not implement
-
-continue / proceed
-→ approve-and-continue
-→ enter Implementation
-```
-
-Ambiguous approval defaults to hold.
-
-## Project context
-
-Durable project knowledge belongs under:
+Durable project context belongs under:
 
 ```text
 aidlc-docs/project/
@@ -139,55 +82,35 @@ aidlc-docs/project/
 └── decisions/
 ```
 
-Per-change artifacts belong under:
-
-```text
-aidlc-docs/changes/<date>-<slug>/
-├── request.md
-├── requirements.md
-├── design.md        # only when required
-├── plan.md
-├── review.md        # only when required
-├── verification.md
-└── audit.md
-```
-
-`AGENTS.md` should remain a thin index to these files and contain only non-obvious project-wide constraints or gotchas.
+Per-change artifacts belong under `aidlc-docs/changes/<date>-<slug>/`.
 
 ## Risk profiles
 
-- **Low** — isolated and reversible. Usually Requirements → Plan → Implement → Verify.
-- **Standard** — broader/user-visible/API/data impact. Planning gate and final acceptance are required; Design and Review are explicit decisions.
-- **High** — auth, sensitive data, migrations, public contracts, infrastructure, architecture boundaries, difficult rollback, or production-critical work. Design, planning gate, independent review, and final acceptance are required.
+- **Low** — isolated/reversible. Usually Requirements → Plan → Implement → Verify.
+- **Standard** — broader user/API/data impact. Planning gate and final acceptance required; Design/Review explicit.
+- **High** — auth, sensitive data, migrations, public contracts, infrastructure, architecture boundaries, difficult rollback, or production-critical work. Design, planning gate, independent review, and final acceptance required.
 
-Security is automatic whenever security triggers apply; it is not an opt-in extension.
+Security activates automatically when its trigger conditions apply.
 
-## Verification
+## Verification philosophy
 
-Completion is evidence-based. Verification maps acceptance criteria to actual outcomes and records commands/actions performed.
+Completion is evidence-based. Unchecked behavior is `NOT VERIFIED`, not assumed to work. Tests/checks must not be weakened simply to obtain a passing result.
 
-Unchecked behavior is `NOT VERIFIED`, not assumed to work. Tests/checks must not be weakened merely to obtain a passing result without explicit user authorization.
+v0.1.1 hardens workflow storage, concurrency, recovery, distribution, and path safety. v0.2 will add artifact/source hashes, approval freshness, review freshness, executable verification receipts, and automatic hash-driven downstream invalidation.
 
-## Engine tests
-
-The v0.1 implementation includes automated coverage of the contract matrix: initialization invariants, conditional Design, planning gates, approve/continue separation, pre-Implementation reclassification, illegal transitions, Implementation completion, Review pass/fail and invalidation, Verification failures/`NOT VERIFIED`, final acceptance, blockers, read-only operations, and rejected-transition atomicity.
+## Development
 
 ```bash
 cd .agents/skills/aidlc-workflows/engine
 npm install
 npm test
+npm run test-runtime
 ```
 
-## Installation
-
-Copy `.agents` into the project root, or install the Skill in the user-level agent skills location supported by your coding environment. Templates for a thin `AGENTS.md` and durable project baseline are under `.agents/skills/aidlc-workflows/templates/`.
-
-## v0.2 boundary
-
-Artifact/source hashes, review freshness receipts, executable verification receipts, source manifests, hash-driven downstream invalidation, and runtime-specific hooks/plugins remain intentionally deferred. They should strengthen evidence without creating a second lifecycle.
+CI runs both the TypeScript implementation and committed runtime suites on Node 20 across Linux, macOS, and Windows.
 
 ## Attribution
 
 This project is based on `qtalen/aidlc-skills`, an MIT-licensed Skill-form adaptation of AWS AI-DLC v1. Selected context-organization ideas were also informed by `KhazP/vibe-coding-prompt-template`.
 
-See `ATTRIBUTION.md` and `LICENSE` for details.
+See `ATTRIBUTION.md` and `LICENSE`.

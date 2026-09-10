@@ -5,33 +5,20 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version",
-    "active_change",
-    "risk",
-    "risk_rationale",
-    "workflow",
-    "stage",
-    "status",
-    "gate",
-    "artifacts",
-    "progress",
-    "blockers"
+    "schema_version", "engine_version", "revision", "active_change", "risk", "risk_rationale",
+    "workflow", "stage", "status", "gate", "artifacts", "progress", "blockers"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
+    "engine_version": { "type": "string", "minLength": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
     "active_change": { "type": ["string", "null"] },
     "risk": { "enum": ["low", "standard", "high"] },
     "risk_rationale": { "type": "string" },
     "workflow": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "design_required",
-        "planning_gate_required",
-        "review_required",
-        "final_acceptance_required",
-        "security_required"
-      ],
+      "required": ["design_required", "planning_gate_required", "review_required", "final_acceptance_required", "security_required"],
       "properties": {
         "design_required": { "type": "boolean" },
         "planning_gate_required": { "type": "boolean" },
@@ -40,28 +27,8 @@
         "security_required": { "type": "boolean" }
       }
     },
-    "stage": {
-      "enum": [
-        "requirements",
-        "design",
-        "plan",
-        "implementation",
-        "review",
-        "verification",
-        "final_acceptance",
-        "complete"
-      ]
-    },
-    "status": {
-      "enum": [
-        "active",
-        "awaiting_approval",
-        "approved_hold",
-        "blocked",
-        "awaiting_acceptance",
-        "complete"
-      ]
-    },
+    "stage": { "enum": ["requirements", "design", "plan", "implementation", "review", "verification", "final_acceptance", "complete", "cancelled"] },
+    "status": { "enum": ["active", "awaiting_approval", "approved_hold", "blocked", "awaiting_acceptance", "complete", "cancelled"] },
     "gate": {
       "type": ["object", "null"],
       "additionalProperties": false,
@@ -98,14 +65,7 @@
         "final_acceptance": { "$ref": "#/$defs/progressState" }
       }
     },
-    "blockers": {
-      "type": "array",
-      "items": { "type": "string" }
-    }
+    "blockers": { "type": "array", "items": { "type": "string", "minLength": 1 } }
   },
-  "$defs": {
-    "progressState": {
-      "enum": ["pending", "active", "complete", "skipped", "not_applicable"]
-    }
-  }
+  "$defs": { "progressState": { "enum": ["pending", "active", "complete", "skipped", "not_applicable"] } }
 }
