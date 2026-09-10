@@ -59,9 +59,9 @@ cancel --reason "..."
 
 State schema v2 stores `engine_version` and a monotonically increasing `revision`. Every mutation is protected by an exclusive `aidlc-docs/.aidlc.lock` and committed through `aidlc-docs/.aidlc-txn.json`, a write-ahead transaction journal. Interrupted transactions block normal progression until `doctor --repair` can safely roll them forward or reports a recovery conflict.
 
-`cancel` provides a normal terminal path for abandoned work without deleting artifacts. Existing workflow artifacts are read through repository-containment and size checks to prevent path escapes and unbounded synchronous reads.
+`cancel` provides a normal terminal path for abandoned work without deleting artifacts. Existing workflow artifacts are read through repository-containment and size checks, and control-file writes validate their real parent path so symlinked directories cannot redirect state outside the project. Workflow artifacts are capped at 2 MiB and transaction journals at 16 MiB.
 
-The committed JavaScript runtime under `engine/runtime/` is generated from the TypeScript source and checked by CI, so users get zero-setup execution without maintaining a hand-written second engine.
+The committed JavaScript runtime under `engine/runtime/` provides zero-setup execution while TypeScript remains the maintainable source. CI runs the same contract/hardening suite against both implementations on Linux, macOS, and Windows, then smoke-tests the packaged CLI.
 
 ## State and project context
 
@@ -96,7 +96,7 @@ Security activates automatically when its trigger conditions apply.
 
 Completion is evidence-based. Unchecked behavior is `NOT VERIFIED`, not assumed to work. Tests/checks must not be weakened simply to obtain a passing result.
 
-v0.1.1 hardens workflow storage and recovery. v0.2 will add artifact/source hashes, approval freshness, review freshness, executable verification receipts, and automatic hash-driven downstream invalidation.
+v0.1.1 hardens workflow storage, concurrency, recovery, distribution, and path safety. v0.2 will add artifact/source hashes, approval freshness, review freshness, executable verification receipts, and automatic hash-driven downstream invalidation.
 
 ## Development
 
@@ -104,10 +104,10 @@ v0.1.1 hardens workflow storage and recovery. v0.2 will add artifact/source hash
 cd .agents/skills/aidlc-workflows/engine
 npm install
 npm test
-npm run check-runtime
+npm run test-runtime
 ```
 
-CI runs the engine test suite on Node 20 across Linux, macOS, and Windows and verifies the committed runtime on Linux.
+CI runs both the TypeScript implementation and committed runtime suites on Node 20 across Linux, macOS, and Windows.
 
 ## Attribution
 
