@@ -6,7 +6,7 @@ declare module 'node:fs' {
 declare module 'node:path' {
   export const dirname: any; export const isAbsolute: any; export const join: any; export const relative: any; export const resolve: any; export const sep: any;
 }
-declare module 'node:crypto' { export const randomUUID: any; }
+declare module 'node:crypto' { export const randomUUID: any; export const createHash: any; }
 declare module 'node:os' { export const tmpdir: any; export const hostname: any; }
 declare module 'node:test' { const test: any; export default test; }
 declare module 'node:assert/strict' { const assert: any; export default assert; }
