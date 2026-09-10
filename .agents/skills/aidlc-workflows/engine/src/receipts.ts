@@ -61,10 +61,11 @@ export function buildReviewReceipt(root: string, state: AidlcState, sourceDigest
   return { source_digest: sourceDigest, review_sha256: hashArtifact(root, state.artifacts.review, 'review'), reviewed_at: at };
 }
 
-export function buildVerificationReceipt(root: string, state: AidlcState, sourceDigest: string, evidenceDigest: string, receiptIds: string[], outcome: VerificationOutcome, at = new Date().toISOString()): VerificationReceipt {
+export function buildVerificationReceipt(root: string, state: AidlcState, sourceDigest: string, checksConfigSha256: string | null, evidenceDigest: string, receiptIds: string[], outcome: VerificationOutcome, at = new Date().toISOString()): VerificationReceipt {
   return {
     source_digest: sourceDigest,
     verification_sha256: hashArtifact(root, state.artifacts.verification, 'verification'),
+    checks_config_sha256: checksConfigSha256,
     evidence_digest: evidenceDigest,
     check_receipt_ids: [...receiptIds].sort(),
     outcome,
