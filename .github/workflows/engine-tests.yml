@@ -24,8 +24,8 @@ on:
       - '.agents/skills/aidlc-workflows/schemas/**'
       - '.agents/skills/aidlc-workflows/templates/project/checks.json'
 
-# Temporary one-shot write access: the Linux push job below publishes the exact
-# compiler-generated v0.2 runtime, after which this workflow is restored to read-only.
+# Temporary one-shot write access. It is restricted below to the exact same-repo
+# v0.2 head branch and will be restored to read-only after runtime publication.
 permissions:
   contents: write
 
@@ -48,9 +48,11 @@ jobs:
       - name: Test TypeScript implementation
         run: npm test
       - name: Publish compiler-generated v0.2 runtime
-        if: runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/feature/evidence-freshness-v0.2'
+        if: runner.os == 'Linux' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feature/evidence-freshness-v0.2'
         shell: bash
         run: |
+          git fetch origin feature/evidence-freshness-v0.2 --depth=1
+          git checkout -B runtime-sync FETCH_HEAD
           npm run sync-runtime
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
