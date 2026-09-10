@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "checks": {
+    "unit": {
+      "command": ["npm", "test"],
+      "required": true,
+      "timeout_ms": 120000
+    },
+    "typecheck": {
+      "command": ["npm", "run", "typecheck"],
+      "required": false,
+      "timeout_ms": 120000
+    }
+  }
+}
