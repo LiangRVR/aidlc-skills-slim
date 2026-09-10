@@ -60,7 +60,9 @@ export interface Progress {
 }
 
 export interface RequirementsReceipt {
+  request_sha256: string;
   requirements_sha256: string;
+  bundle_sha256: string;
   completed_at: string;
 }
 
