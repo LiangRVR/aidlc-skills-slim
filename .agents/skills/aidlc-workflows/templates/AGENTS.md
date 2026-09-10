@@ -1,24 +1,28 @@
-# AGENTS.md — Project Context Map
+# AGENTS.md
 
-Keep this file short. Include only project-specific information that is expensive, ambiguous, or unsafe to rediscover from the repository.
+Keep this file short. Record only project-wide facts and constraints that a capable agent cannot cheaply or safely infer from the repository itself.
 
 ## Read when relevant
 
 - Product purpose and durable constraints: `aidlc-docs/project/brief.md`
-- Architecture and integration choices: `aidlc-docs/project/architecture.md`
-- Stack, setup, and important commands: `aidlc-docs/project/tech-stack.md`
+- Architecture and integration boundaries: `aidlc-docs/project/architecture.md`
+- Stack, setup, and non-obvious commands: `aidlc-docs/project/tech-stack.md`
 - Verification expectations: `aidlc-docs/project/testing.md`
-- Consequential architectural decisions: `aidlc-docs/project/decisions/`
-- Active structured change: `aidlc-docs/aidlc-state.md`
+- Consequential technical decisions: `aidlc-docs/project/decisions/`
+- Active structured change: `aidlc-docs/aidlc-state.json`
 
-Load only what the current task needs. Source code and configuration are authoritative for mechanically discoverable details such as dependency manifests, file structure, and implementation specifics.
+Load only what is relevant to the current task.
 
-## Project-specific gotchas
+## Project gotchas
 
-- Add only non-obvious constraints or failure modes that future agents are likely to miss.
+Add only non-obvious rules, failures, or conventions that would be expensive to rediscover.
+
+- [project-specific gotcha]
 
 ## Protected areas
 
-- Never expose or commit secrets, credentials, private logs, or production data.
-- Preserve unrelated working-tree changes.
-- Before deployments, external sends, destructive production operations, charges, permission changes, or other consequential external actions, ensure the user's authorization covers the action and target.
+Preserve unrelated working-tree changes. Never expose secrets, credentials, private logs, or production data. Require explicit authorization before deployment, destructive production operations, access changes, external sends, charges, or other actions with real-world side effects.
+
+## AI-DLC
+
+When an AI-DLC change is active, AI-DLC owns lifecycle state while the active agent/runtime owns execution and delegation. Do not start a competing end-to-end planning/lifecycle workflow. Delegated workers do not edit `aidlc-docs/aidlc-state.json`.

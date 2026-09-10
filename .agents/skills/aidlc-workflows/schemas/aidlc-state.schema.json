@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LiangRVR/aidlc-skills-slim/schemas/aidlc-state.schema.json",
+  "title": "AI-DLC Slim State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "active_change",
+    "risk",
+    "risk_rationale",
+    "workflow",
+    "stage",
+    "status",
+    "gate",
+    "artifacts",
+    "progress",
+    "blockers"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "active_change": { "type": ["string", "null"] },
+    "risk": { "enum": ["low", "standard", "high"] },
+    "risk_rationale": { "type": "string" },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "design_required",
+        "planning_gate_required",
+        "review_required",
+        "final_acceptance_required",
+        "security_required"
+      ],
+      "properties": {
+        "design_required": { "type": "boolean" },
+        "planning_gate_required": { "type": "boolean" },
+        "review_required": { "type": "boolean" },
+        "final_acceptance_required": { "type": "boolean" },
+        "security_required": { "type": "boolean" }
+      }
+    },
+    "stage": {
+      "enum": [
+        "requirements",
+        "design",
+        "plan",
+        "implementation",
+        "review",
+        "verification",
+        "final_acceptance",
+        "complete"
+      ]
+    },
+    "status": {
+      "enum": [
+        "active",
+        "awaiting_approval",
+        "approved_hold",
+        "blocked",
+        "awaiting_acceptance",
+        "complete"
+      ]
+    },
+    "gate": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["type", "status"],
+      "properties": {
+        "type": { "enum": ["planning", "final_acceptance"] },
+        "status": { "enum": ["open", "approved_hold", "satisfied", "rejected"] }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request", "requirements", "design", "plan", "review", "verification"],
+      "properties": {
+        "request": { "type": ["string", "null"] },
+        "requirements": { "type": ["string", "null"] },
+        "design": { "type": ["string", "null"] },
+        "plan": { "type": ["string", "null"] },
+        "review": { "type": ["string", "null"] },
+        "verification": { "type": ["string", "null"] }
+      }
+    },
+    "progress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirements", "design", "plan", "implementation", "review", "verification", "final_acceptance"],
+      "properties": {
+        "requirements": { "$ref": "#/$defs/progressState" },
+        "design": { "$ref": "#/$defs/progressState" },
+        "plan": { "$ref": "#/$defs/progressState" },
+        "implementation": { "$ref": "#/$defs/progressState" },
+        "review": { "$ref": "#/$defs/progressState" },
+        "verification": { "$ref": "#/$defs/progressState" },
+        "final_acceptance": { "$ref": "#/$defs/progressState" }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "progressState": {
+      "enum": ["pending", "active", "complete", "skipped", "not_applicable"]
+    }
+  }
+}

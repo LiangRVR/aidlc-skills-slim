@@ -1,61 +1,87 @@
-# State
+# State Contract
 
-`aidlc-docs/aidlc-state.md` is the only workflow cursor. Keep it small and mechanically readable.
+`aidlc-docs/aidlc-state.json` is the only workflow cursor. Do not maintain a parallel Markdown state or `MEMORY.md`.
 
-Use this schema:
+The canonical machine schema is `schemas/aidlc-state.schema.json`. The state file must validate against schema version 1 before a transition is accepted.
 
-```markdown
-# AI-DLC State
+## Initialization decisions
 
-Active Change: <date>-<slug>
-Risk: low | standard | high
-Risk Rationale: <one sentence>
+During Preflight, the active parent agent makes the semantic routing decisions once and persists them:
 
-Current Stage: requirements | design | plan | implementation | verification | complete
-Status: active | awaiting-approval | approved-hold | blocked | complete
-Next Stage: <stage or none>
+- `risk`: `low | standard | high`
+- `workflow.design_required`
+- `workflow.planning_gate_required`
+- `workflow.review_required`
+- `workflow.final_acceptance_required`
+- `workflow.security_required`
 
-## Artifacts
-Request: aidlc-docs/changes/<change>/request.md
-Requirements: <path or none>
-Design: <path or none>
-Plan: <path or none>
-Verification: <path or none>
+These are decisions, not repeatedly inferred properties. A future deterministic engine validates their invariants using `transition-contract.md`.
 
-## Progress
-- [ ] Requirements
-- [ ] Design (N/A allowed)
-- [ ] Plan
-- [ ] Implementation
-- [ ] Verification
+## Canonical state example
 
-## Gate
-Planning Approved: yes | no | n/a
-Continue Authorized: yes | no | n/a
-
-## Blockers
-None | <concise blocker>
+```json
+{
+  "schema_version": 1,
+  "active_change": "260910-auth",
+  "risk": "high",
+  "risk_rationale": "Authentication changes affect authorization boundaries and user data.",
+  "workflow": {
+    "design_required": true,
+    "planning_gate_required": true,
+    "review_required": true,
+    "final_acceptance_required": true,
+    "security_required": true
+  },
+  "stage": "plan",
+  "status": "awaiting_approval",
+  "gate": {
+    "type": "planning",
+    "status": "open"
+  },
+  "artifacts": {
+    "request": "aidlc-docs/changes/260910-auth/request.md",
+    "requirements": "aidlc-docs/changes/260910-auth/requirements.md",
+    "design": "aidlc-docs/changes/260910-auth/design.md",
+    "plan": "aidlc-docs/changes/260910-auth/plan.md",
+    "review": null,
+    "verification": null
+  },
+  "progress": {
+    "requirements": "complete",
+    "design": "complete",
+    "plan": "complete",
+    "implementation": "pending",
+    "review": "pending",
+    "verification": "pending",
+    "final_acceptance": "pending"
+  },
+  "blockers": []
+}
 ```
 
-Rules:
+## Ownership
 
-- Never maintain a second `MEMORY.md` or duplicate current-stage tracker.
-- The active parent agent owns state updates; delegated workers do not edit state.
-- On `approve` at a planning gate: set `Status: approved-hold`, `Planning Approved: yes`, `Continue Authorized: no`, and stop.
-- On `continue`/`proceed`: set approval as needed, set `Continue Authorized: yes`, move to Implementation, and proceed.
-- On requested changes while held: keep the gate held, revise the relevant artifact, and require a fresh approval if the approved plan materially changed.
-- On completion: set `Current Stage: complete`, `Status: complete`, `Next Stage: none`, and clear the active gate.
-- If state conflicts with actual artifacts/source, do not guess. Inspect the change directory and Git state, repair the cursor conservatively, and record material recovery in the change audit.
+- Only the active parent agent updates state until the deterministic engine exists.
+- Delegated workers never edit `aidlc-state.json`.
+- Once the engine exists, all lifecycle mutations must go through it; direct state edits become recovery-only behavior.
+- If state conflicts with actual artifacts/source, stop progression, inspect the change directory and Git state, and repair conservatively. Record material recovery in the change audit.
+
+## Transition authority
+
+The legal events, transitions, approval semantics, and workflow invariants are defined in `transition-contract.md`. Do not invent a transition that is absent from that contract.
+
+Stage completion requirements are defined in `completion-predicates.md`. A completion event may not be reported until its predicate passes.
 
 ## Audit
 
-Each change owns `audit.md`. Log only:
+Each change owns `audit.md`. Log only information Git does not capture well:
 
 - original user request;
 - material answers that alter requirements/design;
-- planning approval/hold/continue/rejection;
+- planning approval, hold, continuation, or rejection;
 - consequential design or risk decisions;
 - explicit risk acceptance;
-- final acceptance.
+- final acceptance;
+- material state recovery.
 
-Use timestamps. Preserve original historical entries; corrections are appended, not rewritten. Git remains the source of history for normal file/code edits.
+Use timestamps. Preserve historical entries; corrections are appended rather than rewritten. Git remains the source of history for normal file/code edits.
