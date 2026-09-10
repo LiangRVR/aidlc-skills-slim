@@ -10,10 +10,19 @@ export const LOCK_RELATIVE_PATH = 'aidlc-docs/.aidlc.lock';
 export const TXN_RELATIVE_PATH = 'aidlc-docs/.aidlc-txn.json';
 export const MAX_ARTIFACT_BYTES = 2 * 1024 * 1024;
 export const MAX_CONTROL_FILE_BYTES = 5 * 1024 * 1024;
+export const MAX_TRANSACTION_BYTES = 16 * 1024 * 1024;
+
+function escaped(rootAbs: string, candidate: string): boolean {
+  const rel = relative(rootAbs, candidate);
+  return rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel);
+}
 
 export function projectRoot(root: string): string {
   const abs = resolve(root);
-  return existsSync(abs) ? realpathSync(abs) : abs;
+  if (!existsSync(abs)) throw new EngineError('INVALID_ROOT', `Project root does not exist: ${abs}`);
+  const resolved = realpathSync(abs);
+  if (!statSync(resolved).isDirectory()) throw new EngineError('INVALID_ROOT', `Project root is not a directory: ${abs}`);
+  return resolved;
 }
 
 export function repositoryPath(root: string, relativePath: string): string {
@@ -21,8 +30,7 @@ export function repositoryPath(root: string, relativePath: string): string {
   if (isAbsolute(relativePath)) throw new EngineError('INVALID_PATH', `Path must be repository-relative: ${relativePath}`);
   const rootAbs = projectRoot(root);
   const fileAbs = resolve(rootAbs, relativePath);
-  const rel = relative(rootAbs, fileAbs);
-  if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) throw new EngineError('INVALID_PATH', `Path escapes repository root: ${relativePath}`);
+  if (escaped(rootAbs, fileAbs)) throw new EngineError('INVALID_PATH', `Path escapes repository root: ${relativePath}`);
   return fileAbs;
 }
 
@@ -31,9 +39,32 @@ export function assertExistingPathContained(root: string, relativePath: string):
   const lexical = repositoryPath(rootAbs, relativePath);
   if (!existsSync(lexical)) return lexical;
   const resolved = realpathSync(lexical);
-  const rel = relative(rootAbs, resolved);
-  if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel)) throw new EngineError('INVALID_PATH', `Resolved path escapes repository root: ${relativePath}`);
+  if (escaped(rootAbs, resolved)) throw new EngineError('INVALID_PATH', `Resolved path escapes repository root: ${relativePath}`);
   return resolved;
+}
+
+export function assertWritablePathContained(root: string, relativePath: string): string {
+  const rootAbs = projectRoot(root);
+  const target = repositoryPath(rootAbs, relativePath);
+
+  if (existsSync(target)) {
+    const targetInfo = lstatSync(target);
+    if (targetInfo.isSymbolicLink()) throw new EngineError('INVALID_PATH', `Refusing to write through symbolic link: ${relativePath}`);
+    const resolvedTarget = realpathSync(target);
+    if (escaped(rootAbs, resolvedTarget)) throw new EngineError('INVALID_PATH', `Resolved write target escapes repository root: ${relativePath}`);
+  }
+
+  let ancestor = dirname(target);
+  while (!existsSync(ancestor) && ancestor !== rootAbs) {
+    const parent = dirname(ancestor);
+    if (parent === ancestor) break;
+    ancestor = parent;
+  }
+  if (!existsSync(ancestor)) throw new EngineError('INVALID_PATH', `No existing parent for write target: ${relativePath}`);
+  const resolvedAncestor = realpathSync(ancestor);
+  if (escaped(rootAbs, resolvedAncestor)) throw new EngineError('INVALID_PATH', `Write parent resolves outside repository root: ${relativePath}`);
+
+  return target;
 }
 
 export function readTextIfExists(root: string, relativePath: string, maxBytes = MAX_CONTROL_FILE_BYTES): string | null {
@@ -46,7 +77,7 @@ export function readTextIfExists(root: string, relativePath: string, maxBytes = 
 }
 
 export function writeTextAtomic(root: string, relativePath: string, content: string): void {
-  const file = repositoryPath(root, relativePath);
+  const file = assertWritablePathContained(root, relativePath);
   mkdirSync(dirname(file), { recursive: true });
   const tmp = `${file}.tmp-${process.pid}-${randomUUID()}`;
   try {
@@ -59,7 +90,7 @@ export function writeTextAtomic(root: string, relativePath: string, content: str
 }
 
 export function deleteRepositoryFile(root: string, relativePath: string): void {
-  const file = repositoryPath(root, relativePath);
+  const file = assertWritablePathContained(root, relativePath);
   rmSync(file, { force: true });
 }
 
@@ -72,7 +103,10 @@ export function changeDirectoryExists(root: string, change: string): boolean {
 }
 
 export function removeChangeDirectory(root: string, change: string): void {
-  rmSync(changeDirectoryPath(root, change), { recursive: true, force: true });
+  const path = changeDirectoryPath(root, change);
+  const rootAbs = projectRoot(root);
+  if (existsSync(path) && escaped(rootAbs, realpathSync(path))) throw new EngineError('INVALID_PATH', `Change directory resolves outside repository root: ${change}`);
+  rmSync(path, { recursive: true, force: true });
 }
 
 export function statePath(root: string): string {
