@@ -105,6 +105,7 @@ export type VerificationOutcome = 'PASS' | 'NOT_VERIFIED';
 export interface VerificationReceipt {
   source_digest: string;
   verification_sha256: string;
+  checks_config_sha256: string | null;
   evidence_digest: string;
   check_receipt_ids: string[];
   outcome: VerificationOutcome;
