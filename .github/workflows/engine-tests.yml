@@ -24,8 +24,10 @@ on:
       - '.agents/skills/aidlc-workflows/schemas/**'
       - '.agents/skills/aidlc-workflows/templates/project/checks.json'
 
+# Temporary one-shot write access: the Linux push job below publishes the exact
+# compiler-generated v0.2 runtime, after which this workflow is restored to read-only.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   test:
@@ -45,6 +47,20 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Test TypeScript implementation
         run: npm test
+      - name: Publish compiler-generated v0.2 runtime
+        if: runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/feature/evidence-freshness-v0.2'
+        shell: bash
+        run: |
+          npm run sync-runtime
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime
+          if git diff --cached --quiet; then
+            echo "Runtime already synchronized."
+            exit 0
+          fi
+          git commit -m "build(engine): sync zero-setup runtime for v0.2"
+          git push origin HEAD:feature/evidence-freshness-v0.2
       - name: Upload compiler-generated runtime
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
