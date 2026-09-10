@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { mkdtempSync } from 'node:fs';
@@ -109,7 +109,8 @@ test('symlinked aidlc-docs parent cannot redirect control-file writes outside pr
   symlinkSync(outside, join(project, 'aidlc-docs'), 'dir');
   const engine = new AidlcEngine(project);
   expectCode(() => engine.init(input()), 'INVALID_PATH');
-  assert.equal(readFileSync ? true : true, true);
+  assert.equal(existsSync(join(outside, '.aidlc.lock')), false);
+  assert.equal(existsSync(join(outside, 'aidlc-state.json')), false);
 });
 
 test('oversized workflow artifact is rejected before synchronous read', () => {
@@ -121,6 +122,7 @@ test('oversized workflow artifact is rejected before synchronous read', () => {
 test('oversized transaction journal is rejected before it is written', () => {
   const project = root();
   expectCode(() => commitTransaction(project, 'too-large', [{ path: 'aidlc-docs/large.txt', after: 'x'.repeat(17 * 1024 * 1024) }]), 'TRANSACTION_TOO_LARGE');
+  assert.equal(existsSync(join(project, 'aidlc-docs', '.aidlc-txn.json')), false);
 });
 
 test('doctor reports healthy initialized workflow', () => {
