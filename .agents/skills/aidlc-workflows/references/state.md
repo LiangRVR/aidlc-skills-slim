@@ -6,7 +6,7 @@ The canonical external schema is `schemas/aidlc-state.schema.json`. Engine v0.1 
 
 ## Initialization decisions
 
-During Preflight, the active parent agent makes the semantic routing decisions once and supplies them to `aidlc-engine init`:
+During Preflight, the active parent agent makes the semantic routing decisions and supplies them to `aidlc-engine init`:
 
 - `risk`: `low | standard | high`
 - `workflow.design_required`
@@ -15,7 +15,7 @@ During Preflight, the active parent agent makes the semantic routing decisions o
 - `workflow.final_acceptance_required`
 - `workflow.security_required`
 
-These are decisions, not repeatedly inferred properties. Once initialized, lifecycle mutations go through the engine.
+These are persisted decisions, not repeatedly inferred properties. If new evidence changes them before Implementation, update them only through `aidlc-engine reclassify`. Reclassification is forbidden once Implementation has started.
 
 ## Canonical state example
 
@@ -67,9 +67,13 @@ These are decisions, not repeatedly inferred properties. Once initialized, lifec
 - Direct state edits are recovery-only. After recovery, validate with `aidlc-engine status` and record material recovery in the change audit.
 - If state conflicts with actual artifacts/source, stop progression and inspect the change directory and Git history before recovery.
 
+## Reclassification
+
+`reclassify` replaces the complete risk/routing decision set before Implementation. It validates the new workflow invariants, clears any planning approval, preserves completed Requirements, preserves completed Design only when it remains applicable, and resets Plan plus downstream progress. Newly required Design is routed through Design before a fresh Plan.
+
 ## Transition authority
 
-Legal events, transitions, approval semantics, and workflow invariants are defined in `transition-contract.md` and implemented by `engine/src/machine.ts`.
+Legal events, transitions, approval semantics, reclassification behavior, and workflow invariants are defined in `transition-contract.md` and implemented by the engine.
 
 Stage completion requirements are defined in `completion-predicates.md` and mechanically enforced where possible by `engine/src/predicates.ts`. Semantic quality remains agent/reviewer responsibility.
 
@@ -80,9 +84,9 @@ Each change owns `audit.md`. Record only information Git does not capture well:
 - original user request;
 - material answers that alter requirements/design;
 - planning approval, hold, continuation, or rejection;
-- consequential design or risk decisions;
+- workflow reclassification and consequential risk decisions;
 - explicit risk acceptance;
 - final acceptance;
 - material state recovery.
 
-The engine writes initialization and lifecycle gate/acceptance records. The active agent remains responsible for appending semantic decisions that are outside engine events. Historical entries are append-only; Git remains the source of history for ordinary code/file edits.
+The engine writes initialization, reclassification, lifecycle gate, and acceptance records. The active agent remains responsible for appending semantic decisions that are outside engine events. Historical entries are append-only; Git remains the source of history for ordinary code/file edits.
