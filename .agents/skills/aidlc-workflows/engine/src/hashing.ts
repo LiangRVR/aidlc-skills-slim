@@ -30,7 +30,7 @@ export function canonicalDigest(value: unknown): string {
   return sha256Text(canonicalJson(value));
 }
 
-function readArtifact(root: string, relativePath: string | null, label: string): Buffer {
+function readArtifact(root: string, relativePath: string | null, label: string): any {
   if (!relativePath) throw new EngineError('FRESHNESS_UNAVAILABLE', `${label} artifact path is missing`);
   checkExistingArtifactPath(root, relativePath);
   const file = assertExistingPathContained(root, relativePath);
