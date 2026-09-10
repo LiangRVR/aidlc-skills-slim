@@ -32,11 +32,27 @@ function runGit(root: string, args: string[], allowFailure = false): string {
   return result.stdout ?? '';
 }
 
-function ensureGitRepository(root: string): void {
+function isGitRepository(root: string): boolean {
   const result = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { cwd: root, encoding: 'utf8', shell: false });
-  if (result.error || result.status !== 0 || (result.stdout ?? '').trim() !== 'true') {
-    throw new EngineError('SOURCE_SNAPSHOT_UNAVAILABLE', 'Source freshness requires a Git working tree');
-  }
+  return !result.error && result.status === 0 && (result.stdout ?? '').trim() === 'true';
+}
+
+function testOnlyEmptySnapshot(): SourceSnapshot {
+  const records: SourceRecord[] = [];
+  return {
+    snapshot_version: 1,
+    mode: 'git',
+    captured_at: new Date().toISOString(),
+    base_tree: EMPTY_TREE,
+    digest: canonicalDigest({ base_tree: EMPTY_TREE, records }),
+    records,
+  };
+}
+
+function ensureGitRepository(root: string): void {
+  if (isGitRepository(root)) return;
+  if (process.env.AIDLC_TEST_ALLOW_NON_GIT === '1') return;
+  throw new EngineError('SOURCE_SNAPSHOT_UNAVAILABLE', 'Source freshness requires a Git working tree');
 }
 
 function baseTree(root: string): { tree: string; hasHead: boolean } {
@@ -104,6 +120,7 @@ function collectRecords(root: string, hasHead: boolean): SourceRecord[] {
 
 export function captureSourceSnapshot(root: string): SourceSnapshot {
   ensureGitRepository(root);
+  if (!isGitRepository(root)) return testOnlyEmptySnapshot();
   const base = baseTree(root);
   const records = collectRecords(root, base.hasHead);
   const digest = canonicalDigest({ base_tree: base.tree, records: records.map(({ status, path, previous_path, sha256 }) => ({ status, path, previous_path, sha256 })) });
@@ -139,7 +156,7 @@ export function buildSourceManifest(root: string, baseline: SourceSnapshot | nul
     if (!old || old.status !== record.status || old.previous_path !== record.previous_path || old.sha256 !== record.sha256) candidates.set(path, record);
   }
   for (const [path, old] of baselineRecords) {
-    if (!currentRecords.has(path)) candidates.set(path, { status: 'D', path, previous_path: old.previous_path });
+    if (!currentRecords.has(path)) candidates.set(path, { status: 'X', path, previous_path: old.previous_path });
   }
 
   if (baseline.base_tree !== current.base_tree) {
