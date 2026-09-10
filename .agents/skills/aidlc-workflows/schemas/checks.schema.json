@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LiangRVR/aidlc-skills-slim/schemas/checks.schema.json",
+  "title": "AI-DLC Slim Verification Checks",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "checks"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "checks": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z0-9_.-]+$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "required"],
+        "properties": {
+          "command": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "required": { "type": "boolean" },
+          "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 1800000 },
+          "cwd": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
