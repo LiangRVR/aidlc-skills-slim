@@ -13,6 +13,9 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-const result = spawnSync(process.execPath, ['--test', ...files], { stdio: 'inherit' });
+const result = spawnSync(process.execPath, ['--test', ...files], {
+  stdio: 'inherit',
+  env: { ...process.env, AIDLC_TEST_ALLOW_NON_GIT: '1' },
+});
 if (result.error) throw result.error;
 process.exit(result.status ?? 1);
