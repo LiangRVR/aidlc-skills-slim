@@ -44,12 +44,22 @@ function optionBoolean(args: ParsedArgs, name: string): boolean {
   throw new EngineError('USAGE', `--${name} must be true or false`);
 }
 
+function workflowOptions(args: ParsedArgs): WorkflowFlags {
+  return {
+    design_required: optionBoolean(args, 'design-required'),
+    planning_gate_required: optionBoolean(args, 'planning-gate-required'),
+    review_required: optionBoolean(args, 'review-required'),
+    final_acceptance_required: optionBoolean(args, 'final-acceptance-required'),
+    security_required: optionBoolean(args, 'security-required'),
+  };
+}
+
 function print(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
 function usage(): string {
-  return `AI-DLC Slim Engine v0.1\n\nUsage:\n  aidlc-engine init --change <id> --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> --request <text> [--root <dir>]\n  aidlc-engine next [--root <dir>]\n  aidlc-engine status [--root <dir>]\n  aidlc-engine report <requirements_complete|design_complete|plan_complete|implementation_complete|review_pass|review_fail|verification_complete|accept> [--root <dir>]\n  aidlc-engine approve [--root <dir>]\n  aidlc-engine continue [--root <dir>]\n  aidlc-engine request-changes [--root <dir>]\n  aidlc-engine block --reason <text> [--root <dir>]\n  aidlc-engine unblock (--reason <exact-text>|--all) [--root <dir>]\n`;
+  return `AI-DLC Slim Engine v0.1\n\nUsage:\n  aidlc-engine init --change <id> --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> --request <text> [--root <dir>]\n  aidlc-engine next [--root <dir>]\n  aidlc-engine status [--root <dir>]\n  aidlc-engine reclassify --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> [--root <dir>]\n  aidlc-engine report <requirements_complete|design_complete|plan_complete|implementation_complete|review_pass|review_fail|verification_complete|accept> [--root <dir>]\n  aidlc-engine approve [--root <dir>]\n  aidlc-engine continue [--root <dir>]\n  aidlc-engine request-changes [--root <dir>]\n  aidlc-engine block --reason <text> [--root <dir>]\n  aidlc-engine unblock (--reason <exact-text>|--all) [--root <dir>]\n`;
 }
 
 function main(): void {
@@ -66,18 +76,11 @@ function main(): void {
     case 'init': {
       const risk = optionString(args, 'risk', true)!;
       assertRisk(risk);
-      const workflow: WorkflowFlags = {
-        design_required: optionBoolean(args, 'design-required'),
-        planning_gate_required: optionBoolean(args, 'planning-gate-required'),
-        review_required: optionBoolean(args, 'review-required'),
-        final_acceptance_required: optionBoolean(args, 'final-acceptance-required'),
-        security_required: optionBoolean(args, 'security-required'),
-      };
       const input: InitInput = {
         active_change: optionString(args, 'change', true)!,
         risk,
         risk_rationale: optionString(args, 'risk-rationale', true)!,
-        workflow,
+        workflow: workflowOptions(args),
         request: optionString(args, 'request', true)!,
       };
       print(engine.init(input));
@@ -85,6 +88,16 @@ function main(): void {
     }
     case 'next': print(engine.next()); break;
     case 'status': print(engine.status()); break;
+    case 'reclassify': {
+      const risk = optionString(args, 'risk', true)!;
+      assertRisk(risk);
+      print(engine.reclassify({
+        risk,
+        risk_rationale: optionString(args, 'risk-rationale', true)!,
+        workflow: workflowOptions(args),
+      }));
+      break;
+    }
     case 'report': {
       const event = args.positional[0] as LifecycleEvent | undefined;
       if (!event) throw new EngineError('USAGE', 'report requires an event');
