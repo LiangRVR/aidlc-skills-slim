@@ -17,6 +17,7 @@ on:
       - '.agents/skills/aidlc-workflows/references/engine-*.md'
       - '.agents/skills/aidlc-workflows/references/state.md'
       - '.agents/skills/aidlc-workflows/references/transition-contract.md'
+      - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
       - '.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json'
 
 permissions:
@@ -39,8 +40,18 @@ jobs:
           node-version: '20'
       - run: npm install --no-audit --no-fund
       - run: npm test
+      - name: Regenerate zero-setup runtime
+        if: runner.os == 'Linux'
+        run: npm run sync-runtime
+      - name: Upload generated runtime for reproducibility/debugging
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-runtime
+          path: .agents/skills/aidlc-workflows/engine/runtime
+          if-no-files-found: error
       - name: Verify committed zero-setup runtime
         if: runner.os == 'Linux'
-        run: npm run check-runtime
+        run: git diff --exit-code -- runtime
       - name: Smoke test prebuilt CLI
         run: node bin/aidlc-engine.mjs help
