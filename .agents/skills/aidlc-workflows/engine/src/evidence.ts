@@ -4,7 +4,7 @@ import { buildSourceManifest, tryCaptureSourceSnapshot } from './source.js';
 import { parseJson, readTextIfExists } from './storage.js';
 import type { AidlcState, CheckReceipt, EvidenceDocument, SourceManifestEntry, SourceSnapshot } from './types.js';
 
-export const MAX_EVIDENCE_BYTES = 12 * 1024 * 1024;
+export const MAX_EVIDENCE_BYTES = 4 * 1024 * 1024;
 export const MAX_CHECK_RECEIPTS = 1_000;
 
 export function evidenceRelativePath(change: string): string {
