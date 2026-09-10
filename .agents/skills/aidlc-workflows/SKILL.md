@@ -12,43 +12,46 @@ Do not hardcode agent names, models, providers, MCPs, or orchestration framework
 
 ## Non-negotiable rules
 
-1. There is exactly one workflow cursor: `aidlc-docs/aidlc-state.md`.
+1. There is exactly one workflow cursor: `aidlc-docs/aidlc-state.json`.
 2. Durable project truth lives in `aidlc-docs/project/`; per-change work lives in `aidlc-docs/changes/<date>-<slug>/`.
 3. Never start a competing end-to-end lifecycle while an AI-DLC change is active. Delegation inside the current stage is allowed.
 4. Never claim completion from intent or worker reports. Completion requires current evidence from Verification.
 5. Never weaken, skip, delete, or rewrite a failing test/check merely to obtain a passing result without explicit user authorization.
-6. At a gate, `approve` means approve-and-hold. `continue`/`proceed` means approve-and-continue. Ambiguous approval means hold.
+6. At a planning gate, `approve` means approve-and-hold. `continue`/`proceed` means approve-and-continue. Ambiguous approval means hold.
 7. Security requirements activate automatically when the change touches auth, authorization, secrets, PII, payments, uploads, external input, exposed APIs, production infrastructure, networking, or destructive operations.
-8. The active parent agent is the only actor that updates workflow state.
+8. The active parent agent is the only actor that updates workflow state until the deterministic engine exists. After that, lifecycle mutations go through the engine.
+9. Workflow-routing decisions are persisted in state; do not repeatedly infer Design, gate, Review, acceptance, or security requirements after initialization.
+10. Legal transitions and stage completion are governed by `references/transition-contract.md` and `references/completion-predicates.md`.
 
 ## Preflight — automatic, not a user-facing stage
 
 At the start of every invocation:
 
 1. Read `AGENTS.md` if present.
-2. Read `aidlc-docs/aidlc-state.md` if present.
+2. Read `aidlc-docs/aidlc-state.json` if present.
 3. If a change is active, resume it; do not silently create a second active change.
 4. Load only the project baseline documents relevant to the task.
 5. Inspect source/configuration needed to ground the change.
 6. If the project baseline is missing, stale, or materially incomplete, follow `references/project-baseline.md`.
 7. Classify the change as Low, Standard, or High risk.
-8. Create or update the active change directory and preserve the user's original request in `request.md`.
+8. Decide and persist the workflow flags defined in `references/state.md`.
+9. Create or update the active change directory and preserve the user's original request in `request.md`.
 
 Preflight should not produce ceremony or an approval prompt unless it discovers a consequential ambiguity.
 
 ## Risk profiles
 
-**Low** — isolated, reversible, no meaningful security/data/architecture impact. Flow: Requirements → Plan → Implement → Verify. The user's implementation request authorizes implementation unless planning introduces a consequential decision.
+**Low** — isolated, reversible, no meaningful security/data/architecture impact. Default flow: Requirements → Plan → Implement → Verify. A gate/review/acceptance may still be enabled explicitly when a consequential decision or residual risk warrants it.
 
-**Standard** — multiple files/components, user-visible behavior, API/data-model impact, or moderate rollback/testing complexity. Flow: Requirements → Design if needed → Plan → Planning Gate → Implement → Verify.
+**Standard** — multiple files/components, user-visible behavior, API/data-model impact, or moderate rollback/testing complexity. Flow: Requirements → Design if needed → Plan → Planning Gate → Implement → Verify. Final acceptance is required; Review is an explicit routing decision.
 
-**High** — auth/authorization, sensitive data, migrations, public contracts, infrastructure/deployment, difficult rollback, architecture boundaries, broad refactors, or other production-critical work. Flow: Requirements → Design → Plan → Planning Gate → Implement → Independent Review → Verify.
+**High** — auth/authorization, sensitive data, migrations, public contracts, infrastructure/deployment, difficult rollback, architecture boundaries, broad refactors, or other production-critical work. Flow: Requirements → Design → Plan → Planning Gate → Implement → Independent Review → Verify → Final Acceptance.
 
-If uncertain between two levels, choose the higher level. Record the risk and concise rationale in state.
+If uncertain between two levels, choose the higher level. Persist the risk and concise rationale; the workflow flags are then validated against `references/transition-contract.md`.
 
 ## Stage 1 — Requirements
 
-Load `references/requirements.md`.
+Load `references/requirements.md` and satisfy its completion predicate in `references/completion-predicates.md`.
 
 Requirements always execute, but depth is proportional to the change. Capture behavior, invariants, acceptance criteria, constraints, and explicit non-goals. Ask only questions whose answers materially change requirements, design, risk, or verification.
 
@@ -56,29 +59,31 @@ User stories and NFRs are sections inside `requirements.md` when useful; they ar
 
 ## Stage 2 — Design (conditional)
 
-Load `references/design.md` when the change affects architecture, component/service boundaries, contracts, schemas, data flow, security boundaries, infrastructure, migration behavior, failure/recovery behavior, or another consequential technical decision.
+Load `references/design.md` when `workflow.design_required=true`.
 
-Do not create `design.md` for a localized change when source conventions already determine the implementation.
+Design is required when the change affects architecture, component/service boundaries, contracts, schemas, data flow, security boundaries, infrastructure, migration behavior, failure/recovery behavior, or another consequential technical decision.
+
+Do not create `design.md` when `design_required=false`. In that case, Design progress is `not_applicable`.
 
 If an approved design changes durable project architecture, update the project baseline and create an ADR only when the decision is consequential and alternatives/trade-offs matter.
 
 ## Stage 3 — Plan
 
-Load `references/plan.md`.
+Load `references/plan.md` and satisfy its completion predicate.
 
 Create a concrete, executable plan. Include affected areas, ordered work, dependencies, verification strategy, and rollback/migration notes when relevant. Work units may be listed for parallel/delegated execution, but AI-DLC never prescribes which agent performs them.
 
 ### Planning gate
 
-Required for Standard and High risk. Also required for Low risk if the plan introduces a consequential choice not already authorized by the user.
+Whether a planning gate exists is persisted in `workflow.planning_gate_required`.
 
-At the gate classify the response:
+At an open planning gate classify the user's response into one event:
 
-- **Approve-and-Hold**: approval without continuation signal. Mark `approved-hold`; do not start implementation.
-- **Approve-and-Continue**: `continue`, `proceed`, `go on`, or equivalent. Record approval and begin implementation.
-- **Request Changes**: any correction, question that changes the plan, or requested modification. Revise and reopen the gate.
+- **`approve`** — approve-and-hold. Do not start Implementation.
+- **`continue`** — approve-and-continue. Enter Implementation.
+- **`request_changes`** — return to Plan and revise.
 
-Approval plus an explicit instruction not to continue is always hold. Ambiguity is always hold.
+Approval plus an explicit instruction not to continue is always `approve`. Ambiguity is always `approve`.
 
 ## Stage 4 — Implementation
 
@@ -86,19 +91,19 @@ Load `references/implementation.md`.
 
 Execute the approved/current plan using the capabilities of the active runtime. The active agent may delegate, parallelize independent work, or call tools. AI-DLC imposes no routing policy.
 
-The active parent agent must:
+The active parent agent must preserve unrelated changes, reconcile delegated output, keep the Plan current, stop and return upstream if a consequential new decision appears, and update durable project-baseline documents when implementation changes project truth.
 
-- preserve unrelated working-tree changes;
-- reconcile delegated output before accepting it;
-- keep `plan.md` current when scope changes;
-- stop and return to planning if implementation reveals a consequential new decision;
-- update durable project baseline documents when the implemented change makes them stale.
+If `workflow.review_required=true`, Implementation transitions to Review. Otherwise it transitions directly to Verification.
 
-For High-risk work, obtain an independent review using an available review capability before Verification. The reviewer should evaluate requirements/design/plan, actual changed artifacts, and relevant evidence; it should not merely repeat the builder's self-assessment. Resolve blocking findings and re-review changed material.
+## Review — conditional lifecycle state
+
+Review is not a separate methodology stage, but it is a deterministic lifecycle state when `workflow.review_required=true`.
+
+Obtain an independent review using an available review capability. The reviewer evaluates the actual implementation plus relevant Requirements/Design/Plan and records `review.md` with an explicit verdict. Blocking findings return the workflow to Implementation. A passing review becomes stale if implementation changes afterward; v0.1 handles this conservatively by resetting Review when Implementation is reopened.
 
 ## Stage 5 — Verification
 
-Load `references/verification.md`.
+Load `references/verification.md` and satisfy its completion predicate.
 
 Verification is evidence-based. Run the checks appropriate to the changed area and map acceptance criteria to actual results. User-visible behavior should be exercised in the real product surface when the environment permits it.
 
@@ -106,21 +111,29 @@ Anything not actually checked must be labeled `NOT VERIFIED` rather than inferre
 
 Create `verification.md` containing commands/actions, outcomes, requirement coverage, limitations, and known residual risks.
 
-### Final acceptance
+## Final acceptance
 
-For Standard and High-risk work, present the completed implementation and verification evidence for user acceptance. For Low-risk work, present the evidence and outcome; require explicit final acceptance only if the user requested a gate or if consequential residual risk remains.
+Whether final acceptance is required is persisted in `workflow.final_acceptance_required`.
 
-After final acceptance, mark the change complete. There is no continuation gate after completion.
+When required, Verification opens Final Acceptance. `accept` completes the workflow; `request_changes` returns to Implementation and invalidates downstream Review/Verification as applicable.
 
-## State and audit
+When final acceptance is not required, successful Verification completes the workflow directly.
 
-Load `references/state.md` when creating, resuming, changing, holding, or completing workflow state.
+## State, transitions, and audit
 
-Audit only events Git does not capture well: original request, material answers, gate decisions, consequential design/risk decisions, explicit risk acceptance, and final acceptance. Do not log every automatic action or every generated file.
+Load these contracts when creating, resuming, changing, holding, or completing workflow state:
+
+- `references/state.md` — canonical JSON state and ownership.
+- `references/transition-contract.md` — legal events/transitions and invariants.
+- `references/completion-predicates.md` — minimum completion requirements.
+- `references/engine-contract.md` — boundary for the future deterministic engine.
+- `schemas/aidlc-state.schema.json` — canonical machine schema.
+
+Audit only events Git does not capture well: original request, material answers, gate decisions, consequential design/risk decisions, explicit risk acceptance, material recovery, and final acceptance. Do not log every automatic action or generated file.
 
 ## Security
 
-Load `references/security.md` automatically when its trigger conditions apply. Security is not an opt-in extension.
+Load `references/security.md` automatically when `workflow.security_required=true`. Security is not an opt-in extension.
 
 ## Context discipline
 

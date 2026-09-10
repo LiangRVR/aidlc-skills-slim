@@ -1,82 +1,178 @@
 # AI-DLC Skills Slim
 
-A slim, runtime-agnostic AI-DLC workflow for structured AI-assisted software development.
+A slim, runtime-agnostic adaptation of AWS AI-DLC v1 for structured AI-assisted software development.
 
-This project is based on [qtalen/aidlc-skills](https://github.com/qtalen/aidlc-skills), a Skill-form adaptation of AWS AI-DLC v1. This fork deliberately removes most lifecycle ceremony and keeps only the parts that improve correctness: durable project context, explicit requirements, conditional design, a concrete implementation plan, evidence-based verification, and human approval where risk justifies it.
+This fork keeps the useful lifecycle discipline from `qtalen/aidlc-skills` while removing overlapping stages, verbose ceremony, duplicate state, and runtime-specific orchestration assumptions.
 
-## Core idea
-
-AI-DLC owns the **development lifecycle**. The currently selected agent owns **execution**.
-
-The Skill does not prescribe agent names, models, providers, MCPs, or orchestration frameworks. A capable runtime may work directly, delegate to subagents, run tasks in parallel, or use specialist reviewers. Delegation never transfers responsibility for AI-DLC state, artifacts, or completion.
-
-## Workflow
+## Core lifecycle
 
 ```text
 Preflight (automatic)
-    ↓
+  ↓
 Requirements
-    ↓
-Design (only when needed)
-    ↓
+  ↓
+Design (only when required)
+  ↓
 Plan
-    ↓
-Planning gate for Standard/High-risk work
-    ↓
+  ↓
+Planning Gate (when required)
+  ↓
 Implementation
-    ↓
-Independent review when required by risk
-    ↓
+  ↓
+Independent Review (when required)
+  ↓
 Verification
-    ↓
-Final acceptance
+  ↓
+Final Acceptance (when required)
+  ↓
+Complete
 ```
 
-Risk profiles:
+The workflow adapts through explicit persisted routing decisions rather than repeatedly re-inferring the process.
 
-- **Low** — Requirements → Plan → Implement → Verify. The user's implementation request is sufficient authorization unless a consequential decision appears.
-- **Standard** — Requirements → optional Design → Plan → approval gate → Implement → Verify.
-- **High** — Requirements → Design → Plan → approval gate → Implement → independent review → Verify.
+## Responsibility split
 
-At any approval gate, `approve` means **approve and hold**. `continue`, `proceed`, or equivalent means **approve and continue**. Ambiguity defaults to hold.
+AI-DLC Slim owns:
 
-## Project layout
+- lifecycle stages;
+- workflow state;
+- approval semantics;
+- project/change artifacts;
+- completion requirements;
+- verification expectations.
+
+The currently active agent/runtime owns:
+
+- execution strategy;
+- delegation and parallelism;
+- model/provider selection;
+- tool/MCP selection;
+- specialist routing.
+
+The Skill never hardcodes OMO Slim or any other orchestration framework. OMO can remain the active orchestrator without AI-DLC depending on it.
+
+## Deterministic state contract
+
+The only workflow cursor is:
 
 ```text
-<project>/
-├── AGENTS.md                         # thin context map; preserve existing file if present
-└── aidlc-docs/
-    ├── project/                      # durable project truth
-    │   ├── brief.md
-    │   ├── architecture.md
-    │   ├── tech-stack.md
-    │   ├── testing.md
-    │   └── decisions/                # ADRs only when consequential
-    ├── changes/
-    │   └── <date>-<slug>/            # one isolated workflow per change
-    │       ├── request.md
-    │       ├── requirements.md
-    │       ├── design.md              # conditional
-    │       ├── plan.md
-    │       ├── verification.md
-    │       └── audit.md
-    └── aidlc-state.md                # the only workflow cursor
+aidlc-docs/aidlc-state.json
 ```
 
-The source code and configuration remain executable technical truth. `aidlc-docs/project/` is a concise, maintained summary of durable project decisions. Per-change artifacts never become a second permanent knowledge base.
+Its canonical schema lives at:
+
+```text
+.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json
+```
+
+Preflight persists these workflow decisions once:
+
+- `design_required`
+- `planning_gate_required`
+- `review_required`
+- `final_acceptance_required`
+- `security_required`
+
+The machine contract is split into:
+
+- `references/state.md` — state ownership and JSON model;
+- `references/transition-contract.md` — legal events/transitions and risk invariants;
+- `references/completion-predicates.md` — minimum completion requirements;
+- `references/engine-contract.md` — boundary for the future deterministic engine.
+
+This lets a future state machine own bookkeeping while the LLM remains responsible for semantic judgment.
+
+## Approval semantics
+
+At a planning gate:
+
+```text
+approve
+→ approve-and-hold
+→ do not implement
+
+continue / proceed
+→ approve-and-continue
+→ enter Implementation
+```
+
+Ambiguous approval defaults to hold.
+
+## Project context
+
+Durable project knowledge belongs under:
+
+```text
+aidlc-docs/project/
+├── brief.md
+├── architecture.md
+├── tech-stack.md
+├── testing.md
+└── decisions/
+```
+
+Per-change artifacts belong under:
+
+```text
+aidlc-docs/changes/<date>-<slug>/
+├── request.md
+├── requirements.md
+├── design.md        # only when required
+├── plan.md
+├── review.md        # only when required
+├── verification.md
+└── audit.md
+```
+
+`AGENTS.md` should remain a thin index to these files and contain only non-obvious project-wide constraints or gotchas.
+
+## Risk profiles
+
+- **Low** — isolated and reversible. Usually Requirements → Plan → Implement → Verify.
+- **Standard** — broader/user-visible/API/data impact. Planning gate and final acceptance are required; Design and Review are explicit decisions.
+- **High** — auth, sensitive data, migrations, public contracts, infrastructure, architecture boundaries, difficult rollback, or production-critical work. Design, planning gate, independent review, and final acceptance are required.
+
+Security is automatic whenever security triggers apply; it is not an opt-in extension.
+
+## Verification
+
+Completion is evidence-based. Verification maps acceptance criteria to actual outcomes and records commands/actions performed.
+
+Unchecked behavior is reported as `NOT VERIFIED`, not assumed to work. Tests/checks must not be weakened merely to obtain a passing result without explicit user authorization.
 
 ## Installation
 
-Copy `.agents/` into a project root, or install the skill globally using the mechanism supported by your agent runtime. The workflow itself is runtime-agnostic.
+Copy `.agents` into the project root, or install the skill in the user-level agent skills location supported by your coding environment.
 
-For a project using the Skill for the first time, the active agent should create the minimal `aidlc-docs/project/` baseline from the existing repository (brownfield) or from approved design decisions (greenfield). Templates are included under the Skill directory.
+Templates for a thin `AGENTS.md` and durable project baseline are under:
 
-## Deliberate non-goals
+```text
+.agents/skills/aidlc-workflows/templates/
+```
 
-This fork does not include a deterministic state engine, multi-agent routing, a second planning system, or a large compliance framework. Do not run a competing end-to-end lifecycle inside an active AI-DLC change. Normal delegation and specialist work inside a stage are expected.
+## State-machine roadmap
 
-If experience later shows that agents skip gates or stale artifacts cause real failures, a small deterministic state/evidence engine can be added without changing this workflow model.
+The workflow contract is intentionally frozen before engine implementation.
+
+The first deterministic engine should stay small and expose only:
+
+```text
+init
+next
+report <event>
+approve
+continue
+request-changes
+block / unblock
+status
+```
+
+`next` and `status` are read-only. Mutations must validate the current state, event legality, completion predicates, next-state schema, and workflow invariants before writing atomically.
+
+Artifact hashing, review freshness, source fingerprints, evidence receipts, and downstream staleness propagation are deferred to v0.2.
 
 ## Attribution
 
-See `ATTRIBUTION.md`. The upstream repository and this fork are distributed under the MIT License.
+This project is based on `qtalen/aidlc-skills`, an MIT-licensed Skill-form adaptation of AWS AI-DLC v1. Selected context-organization ideas were also informed by `KhazP/vibe-coding-prompt-template`.
+
+See `ATTRIBUTION.md` and `LICENSE` for details.
