@@ -3,7 +3,9 @@ import { checkExistingArtifactPath, MAX_ARTIFACT_BYTES, readTextIfExists } from 
 function readArtifact(root, path, label) {
     if (!path)
         throw new EngineError('PREDICATE_FAILED', `${label} artifact path is missing`);
-    try { checkExistingArtifactPath(root, path); }
+    try {
+        checkExistingArtifactPath(root, path);
+    }
     catch (error) {
         if (error instanceof EngineError)
             throw new EngineError('PREDICATE_FAILED', `${label} artifact path is unsafe: ${error.message}`);
@@ -33,11 +35,13 @@ function sectionBody(text, heading) {
             break;
         }
     }
-    if (start < 0) return null;
+    if (start < 0)
+        return null;
     const body = [];
     for (let i = start; i < lines.length; i += 1) {
         const next = lines[i].match(/^(#{1,6})\s+/);
-        if (next && next[1].length <= level) break;
+        if (next && next[1].length <= level)
+            break;
         body.push(lines[i]);
     }
     return body.join('\n').trim();
@@ -47,7 +51,8 @@ function requirementIds(requirements) {
     const ids = new Set();
     for (const line of body.split(/\r?\n/)) {
         const match = line.match(/^\s*[-*]\s+(R[0-9A-Za-z_.-]+)\s*:/i);
-        if (match) ids.add(match[1].toUpperCase());
+        if (match)
+            ids.add(match[1].toUpperCase());
     }
     return [...ids];
 }
@@ -128,7 +133,10 @@ export function checkVerification(root, state) {
     let hasNotVerified = false;
     for (const id of ids) {
         const row = coverage.split(/\r?\n/).find((line) => new RegExp(`\\b${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(line));
-        if (!row) { missing.push(id); continue; }
+        if (!row) {
+            missing.push(id);
+            continue;
+        }
         if (/\bFAIL\b/i.test(row))
             throw new EngineError('PREDICATE_FAILED', `Acceptance criterion ${id} is FAIL`);
         if (/\bNOT\s+VERIFIED\b/i.test(row))
@@ -143,4 +151,5 @@ export function checkVerification(root, state) {
         if (!limitations.trim() || /^none\.?$/i.test(limitations.trim()))
             throw new EngineError('PREDICATE_FAILED', 'NOT VERIFIED criteria require an explicit residual-risk explanation');
     }
+    return hasNotVerified ? 'NOT_VERIFIED' : 'PASS';
 }
