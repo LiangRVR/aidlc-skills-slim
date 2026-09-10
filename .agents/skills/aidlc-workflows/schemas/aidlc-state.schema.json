@@ -1,15 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/LiangRVR/aidlc-skills-slim/schemas/aidlc-state.schema.json",
-  "title": "AI-DLC Slim State",
+  "title": "AI-DLC Slim State v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version", "engine_version", "revision", "active_change", "risk", "risk_rationale",
-    "workflow", "stage", "status", "gate", "artifacts", "progress", "blockers"
+    "workflow", "stage", "status", "gate", "artifacts", "progress", "blockers", "evidence_path", "freshness"
   ],
   "properties": {
-    "schema_version": { "const": 2 },
+    "schema_version": { "const": 3 },
     "engine_version": { "type": "string", "minLength": 1 },
     "revision": { "type": "integer", "minimum": 1 },
     "active_change": { "type": ["string", "null"] },
@@ -65,7 +65,72 @@
         "final_acceptance": { "$ref": "#/$defs/progressState" }
       }
     },
-    "blockers": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+    "blockers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "evidence_path": { "type": ["string", "null"] },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requirements", "design", "plan", "planning_approval", "implementation", "review", "verification", "final_acceptance"],
+      "properties": {
+        "requirements": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/requirementsReceipt" }] },
+        "design": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/designReceipt" }] },
+        "plan": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/planReceipt" }] },
+        "planning_approval": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/planningApprovalReceipt" }] },
+        "implementation": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/implementationReceipt" }] },
+        "review": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/reviewReceipt" }] },
+        "verification": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/verificationReceipt" }] },
+        "final_acceptance": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/finalAcceptanceReceipt" }] }
+      }
+    }
   },
-  "$defs": { "progressState": { "enum": ["pending", "active", "complete", "skipped", "not_applicable"] } }
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "timestamp": { "type": "string", "minLength": 1 },
+    "progressState": { "enum": ["pending", "active", "complete", "skipped", "not_applicable"] },
+    "requirementsReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request_sha256", "requirements_sha256", "bundle_sha256", "completed_at"],
+      "properties": { "request_sha256": { "$ref": "#/$defs/digest" }, "requirements_sha256": { "$ref": "#/$defs/digest" }, "bundle_sha256": { "$ref": "#/$defs/digest" }, "completed_at": { "$ref": "#/$defs/timestamp" } }
+    },
+    "designReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["requirements_sha256", "design_sha256", "bundle_sha256", "completed_at"],
+      "properties": { "requirements_sha256": { "$ref": "#/$defs/digest" }, "design_sha256": { "$ref": "#/$defs/digest" }, "bundle_sha256": { "$ref": "#/$defs/digest" }, "completed_at": { "$ref": "#/$defs/timestamp" } }
+    },
+    "planReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["requirements_sha256", "design_sha256", "plan_sha256", "bundle_sha256", "completed_at"],
+      "properties": { "requirements_sha256": { "$ref": "#/$defs/digest" }, "design_sha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }] }, "plan_sha256": { "$ref": "#/$defs/digest" }, "bundle_sha256": { "$ref": "#/$defs/digest" }, "completed_at": { "$ref": "#/$defs/timestamp" } }
+    },
+    "planningApprovalReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_bundle_sha256", "approved_at", "continued_at"],
+      "properties": { "plan_bundle_sha256": { "$ref": "#/$defs/digest" }, "approved_at": { "$ref": "#/$defs/timestamp" }, "continued_at": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/timestamp" }] } }
+    },
+    "implementationReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_bundle_sha256", "source_digest", "source_manifest_digest", "captured_at"],
+      "properties": { "plan_bundle_sha256": { "$ref": "#/$defs/digest" }, "source_digest": { "$ref": "#/$defs/digest" }, "source_manifest_digest": { "$ref": "#/$defs/digest" }, "captured_at": { "$ref": "#/$defs/timestamp" } }
+    },
+    "reviewReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_digest", "review_sha256", "reviewed_at"],
+      "properties": { "source_digest": { "$ref": "#/$defs/digest" }, "review_sha256": { "$ref": "#/$defs/digest" }, "reviewed_at": { "$ref": "#/$defs/timestamp" } }
+    },
+    "verificationReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_digest", "verification_sha256", "checks_config_sha256", "evidence_digest", "check_receipt_ids", "outcome", "verified_at"],
+      "properties": {
+        "source_digest": { "$ref": "#/$defs/digest" }, "verification_sha256": { "$ref": "#/$defs/digest" },
+        "checks_config_sha256": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }] }, "evidence_digest": { "$ref": "#/$defs/digest" },
+        "check_receipt_ids": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "outcome": { "enum": ["PASS", "NOT_VERIFIED"] }, "verified_at": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "finalAcceptanceReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_digest", "verification_evidence_digest", "accepted_at"],
+      "properties": { "source_digest": { "$ref": "#/$defs/digest" }, "verification_evidence_digest": { "$ref": "#/$defs/digest" }, "accepted_at": { "$ref": "#/$defs/timestamp" } }
+    }
+  }
 }
