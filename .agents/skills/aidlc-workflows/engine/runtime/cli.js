@@ -48,7 +48,7 @@ function workflowOptions(args) {
 }
 function print(value) { process.stdout.write(`${JSON.stringify(value, null, 2)}\n`); }
 function usage() {
-    return `AI-DLC Slim Engine v0.1.1\n\nUsage:\n  aidlc-engine init --change <id> --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> --request <text> [--root <dir>]\n  aidlc-engine next [--root <dir>]\n  aidlc-engine status [--root <dir>]\n  aidlc-engine doctor [--repair] [--root <dir>]\n  aidlc-engine migrate [--root <dir>]\n  aidlc-engine reclassify --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> [--root <dir>]\n  aidlc-engine report <requirements_complete|design_complete|plan_complete|implementation_complete|review_pass|review_fail|verification_complete|accept> [--root <dir>]\n  aidlc-engine approve [--root <dir>]\n  aidlc-engine continue [--root <dir>]\n  aidlc-engine request-changes [--root <dir>]\n  aidlc-engine block --reason <text> [--root <dir>]\n  aidlc-engine unblock (--reason <exact-text>|--all) [--root <dir>]\n  aidlc-engine cancel --reason <text> [--root <dir>]\n`;
+    return `AI-DLC Slim Engine v0.2.0\n\nUsage:\n  aidlc-engine init --change <id> --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> --request <text> [--root <dir>]\n  aidlc-engine next [--root <dir>]\n  aidlc-engine status [--root <dir>]\n  aidlc-engine freshness [--root <dir>]\n  aidlc-engine refresh [--root <dir>]\n  aidlc-engine doctor [--repair] [--root <dir>]\n  aidlc-engine migrate [--root <dir>]\n  aidlc-engine reclassify --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> [--root <dir>]\n  aidlc-engine check <name> [--root <dir>]\n  aidlc-engine report <requirements_complete|design_complete|plan_complete|implementation_complete|review_pass|review_fail|verification_complete|accept> [--root <dir>]\n  aidlc-engine approve [--root <dir>]\n  aidlc-engine continue [--root <dir>]\n  aidlc-engine request-changes [--root <dir>]\n  aidlc-engine block --reason <text> [--root <dir>]\n  aidlc-engine unblock (--reason <exact-text>|--all) [--root <dir>]\n  aidlc-engine cancel --reason <text> [--root <dir>]\n`;
 }
 function main() {
     const args = parseArgs(process.argv.slice(2));
@@ -72,6 +72,12 @@ function main() {
         case 'status':
             print(engine.status());
             break;
+        case 'freshness':
+            print(engine.freshness());
+            break;
+        case 'refresh':
+            print(engine.refresh());
+            break;
         case 'doctor':
             print(engine.doctor(args.options.get('repair') === true));
             break;
@@ -82,6 +88,13 @@ function main() {
             const risk = optionString(args, 'risk', true);
             assertRisk(risk);
             print(engine.reclassify({ risk, risk_rationale: optionString(args, 'risk-rationale', true), workflow: workflowOptions(args) }));
+            break;
+        }
+        case 'check': {
+            const name = args.positional[0];
+            if (!name)
+                throw new EngineError('USAGE', 'check requires a configured check name');
+            print(engine.check(name));
             break;
         }
         case 'report': {

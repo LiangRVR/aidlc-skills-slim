@@ -1,9 +1,9 @@
 {
   "name": "@aidlc-slim/engine",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Deterministic state engine for AI-DLC Slim",
+  "description": "Deterministic state, freshness, and evidence engine for AI-DLC Slim",
   "bin": {
     "aidlc-engine": "runtime/cli.js"
   },

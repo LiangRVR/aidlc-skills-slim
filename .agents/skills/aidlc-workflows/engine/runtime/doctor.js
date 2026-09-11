@@ -1,6 +1,9 @@
 import { existsSync } from 'node:fs';
+import { readChecksConfig } from './checks.js';
+import { createEvidenceDocument, readEvidence, serializeEvidence } from './evidence.js';
+import { inspectFreshness } from './freshness.js';
 import { lockIsProvablyStale, readWorkflowLock, removeStaleOrMalformedLock, withWorkflowLock } from './lock.js';
-import { migrateV1ToV2, schemaVersionOf } from './migration.js';
+import { migrateToCurrent, schemaVersionOf } from './migration.js';
 import { checkExistingArtifactPath, changeDirectoryPath, nextAuditContent, parseJson, readStateBytes, readTextIfExists, serializeState, STATE_RELATIVE_PATH } from './storage.js';
 import { commitTransaction, pendingTransactionExists, readPendingTransaction, recoverPendingTransaction } from './transaction.js';
 import { ENGINE_VERSION } from './types.js';
@@ -33,16 +36,15 @@ function inspect(root, repaired = []) {
     const raw = readStateBytes(root);
     let state;
     let stateSummary;
-    if (raw === null) {
+    if (raw === null)
         checks.push(check('state', 'pass', 'No workflow state exists'));
-    }
     else {
         try {
             const parsed = parseJson(raw, STATE_RELATIVE_PATH);
             const version = schemaVersionOf(parsed);
-            if (version === 1) {
-                stateSummary = { schema_version: 1 };
-                checks.push(check('state', 'warn', 'Schema v1 state requires migration; run migrate or doctor --repair'));
+            if (version !== 3) {
+                stateSummary = { schema_version: version ?? -1 };
+                checks.push(check('state', 'warn', `Schema v${String(version)} state requires migration to v3; run migrate or doctor --repair`));
             }
             else {
                 assertValidState(parsed);
@@ -72,6 +74,30 @@ function inspect(root, repaired = []) {
             }
         }
         checks.push(artifactFailures.length ? check('artifact-paths', 'fail', artifactFailures.join('; ')) : check('artifact-paths', 'pass', 'Existing artifact paths are contained and within size limits'));
+        try {
+            const evidence = readEvidence(root, state);
+            const sourceMessage = evidence.source.baseline ? `Evidence source baseline ${evidence.source.baseline.digest}` : `Evidence exists; source baseline unavailable: ${evidence.source.unavailable_reason ?? 'unknown reason'}`;
+            checks.push(check('evidence', evidence.source.baseline || !['implementation', 'review', 'verification', 'final_acceptance', 'complete'].includes(state.stage) ? 'pass' : 'fail', sourceMessage));
+            try {
+                const issues = inspectFreshness(root, state, evidence);
+                checks.push(issues.length ? check('freshness', 'fail', issues.map((issue) => `${issue.dependency}: ${issue.message}`).join('; ')) : check('freshness', 'pass', 'All completed workflow evidence is current'));
+            }
+            catch (error) {
+                checks.push(check('freshness', 'fail', error.message));
+            }
+        }
+        catch (error) {
+            checks.push(check('evidence', 'fail', error.message));
+            checks.push(check('freshness', 'fail', 'Freshness cannot be evaluated without valid evidence'));
+        }
+        try {
+            const config = readChecksConfig(root);
+            const required = Object.entries(config.checks).filter(([, definition]) => definition.required).map(([name]) => name);
+            checks.push(check('check-config', 'pass', required.length ? `Configured required checks: ${required.join(', ')}` : 'No required executable checks configured'));
+        }
+        catch (error) {
+            checks.push(check('check-config', 'fail', error.message));
+        }
     }
     const ok = checks.every((item) => item.status !== 'fail');
     return { ok, engine_version: ENGINE_VERSION, repaired, checks, ...(stateSummary ? { state: stateSummary } : {}) };
@@ -93,18 +119,36 @@ export function doctor(root, repair = false) {
                 repaired.push(`recovered pending ${operation} transaction`);
         }
         const raw = readStateBytes(root);
-        if (raw !== null) {
-            const parsed = parseJson(raw, STATE_RELATIVE_PATH);
-            if (schemaVersionOf(parsed) === 1) {
-                const migrated = migrateV1ToV2(parsed);
-                const audit = migrated.active_change ? nextAuditContent(root, migrated, 'migrate', `State schema migrated from v1 to v2 by engine ${ENGINE_VERSION}.`) : null;
-                const mutations = [{ path: STATE_RELATIVE_PATH, after: serializeState(migrated) }];
-                if (audit)
-                    mutations.push({ path: audit.path, after: audit.content });
-                commitTransaction(root, 'migrate', mutations);
-                repaired.push('migrated state schema v1 -> v2');
-            }
+        if (raw === null)
+            return;
+        const parsed = parseJson(raw, STATE_RELATIVE_PATH);
+        const version = schemaVersionOf(parsed);
+        let state;
+        let migrated = false;
+        if (version === 3) {
+            assertValidState(parsed);
+            state = parsed;
         }
+        else {
+            state = migrateToCurrent(parsed);
+            migrated = true;
+        }
+        const mutations = [];
+        if (migrated) {
+            mutations.push({ path: STATE_RELATIVE_PATH, after: serializeState(state) });
+            repaired.push(`migrated state schema v${String(version)} -> v3`);
+        }
+        if (state.active_change && state.evidence_path && readTextIfExists(root, state.evidence_path) === null) {
+            const evidence = createEvidenceDocument(root, state.active_change);
+            mutations.push({ path: state.evidence_path, after: serializeEvidence(evidence) });
+            repaired.push('created missing evidence document');
+        }
+        if (mutations.length && state.active_change) {
+            const audit = nextAuditContent(root, state, 'doctor-repair', `Engine ${ENGINE_VERSION} repaired workflow storage/migration metadata. Semantic freshness was not auto-accepted; run refresh if doctor reports stale dependencies.`);
+            mutations.push({ path: audit.path, after: audit.content });
+        }
+        if (mutations.length)
+            commitTransaction(root, 'doctor-repair', mutations);
     });
     return inspect(root, repaired);
 }

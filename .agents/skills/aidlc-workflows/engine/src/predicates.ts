@@ -1,6 +1,6 @@
 import { EngineError } from './errors.js';
 import { checkExistingArtifactPath, MAX_ARTIFACT_BYTES, readTextIfExists } from './storage.js';
-import type { AidlcState } from './types.js';
+import type { AidlcState, VerificationOutcome } from './types.js';
 
 function readArtifact(root: string, path: string | null, label: string): string {
   if (!path) throw new EngineError('PREDICATE_FAILED', `${label} artifact path is missing`);
@@ -98,7 +98,7 @@ export function checkReviewFail(root: string, state: AidlcState): void {
   if (!/^\s*(?:\*\*)?Verdict(?:\*\*)?\s*:\s*(?:FAIL|CHANGES_REQUIRED)\s*$/im.test(text)) throw new EngineError('PREDICATE_FAILED', 'review.md must contain `Verdict: FAIL` or `Verdict: CHANGES_REQUIRED`');
 }
 
-export function checkVerification(root: string, state: AidlcState): void {
+export function checkVerification(root: string, state: AidlcState): VerificationOutcome {
   requireNoBlockers(state);
   const text = readArtifact(root, state.artifacts.verification, 'verification');
   for (const heading of ['Requirement Coverage', 'Automated Checks', 'Runtime / User-Surface Checks', 'Baseline Consistency', 'Limitations / Residual Risk']) if (!hasHeading(text, heading)) throw new EngineError('PREDICATE_FAILED', `verification.md is missing required section: ${heading}`);
@@ -115,4 +115,5 @@ export function checkVerification(root: string, state: AidlcState): void {
     const limitations = sectionBody(text, 'Limitations / Residual Risk') ?? '';
     if (!limitations.trim() || /^none\.?$/i.test(limitations.trim())) throw new EngineError('PREDICATE_FAILED', 'NOT VERIFIED criteria require an explicit residual-risk explanation');
   }
+  return hasNotVerified ? 'NOT_VERIFIED' : 'PASS';
 }
