@@ -9,14 +9,15 @@ import { spawnSync } from 'node:child_process';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../../../..');
+const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 function run(cmd, args, cwd) {
   return spawnSync(cmd, args, { cwd, encoding: 'utf8', shell: false });
 }
 
 test('packed npm artifact exposes aidlc and installs the complete Skill', async () => {
-  const packed = run('npm', ['pack', '--json'], REPO_ROOT);
-  assert.equal(packed.status, 0, packed.stderr);
+  const packed = run(NPM, ['pack', '--json'], REPO_ROOT);
+  assert.equal(packed.status, 0, packed.error?.message ?? packed.stderr);
   const metadata = JSON.parse(packed.stdout);
   assert.ok(Array.isArray(metadata) && metadata[0]?.filename, packed.stdout);
 
@@ -32,8 +33,8 @@ test('packed npm artifact exposes aidlc and installs the complete Skill', async 
     const initGit = run('git', ['init'], root);
     assert.equal(initGit.status, 0, initGit.stderr);
 
-    const execution = run('npm', ['exec', '--yes', '--package', tarball, '--', 'aidlc', 'init', '--root', root, '--yes'], REPO_ROOT);
-    assert.equal(execution.status, 0, `${execution.stdout}\n${execution.stderr}`);
+    const execution = run(NPM, ['exec', '--yes', '--package', tarball, '--', 'aidlc', 'init', '--root', root, '--yes'], REPO_ROOT);
+    assert.equal(execution.status, 0, `${execution.error?.message ?? ''}\n${execution.stdout}\n${execution.stderr}`);
     assert.match(execution.stdout, /AI-DLC Slim setup/);
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'SKILL.md')));
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'engine', 'bin', 'aidlc-engine.mjs')));
