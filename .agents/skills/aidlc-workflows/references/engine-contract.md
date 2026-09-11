@@ -1,38 +1,46 @@
 # AI-DLC Slim Engine Contract
 
-The active agent owns semantic judgment. The deterministic engine owns bookkeeping and integrity.
+The active agent owns semantic judgment. The deterministic engine owns bookkeeping, integrity, freshness, and machine evidence.
 
 ## Agent-owned judgment
 
-Risk classification, workflow flags, requirements/design quality, implementation choices, delegation, independent-review judgment, and verification meaning remain outside the engine.
+Risk classification, workflow flags, requirements/design quality, implementation choices, delegation, independent-review judgment, which project checks are appropriate to configure, manual/runtime observations, and verification meaning remain outside the engine.
 
 ## Engine-owned guarantees
 
-Engine v0.1.1 enforces:
+Engine v0.2 enforces:
 
-- schema-v2 state validation and migration from v1;
-- monotonic state revisions;
-- exclusive mutation locking;
-- write-ahead transaction recovery;
+- schema-v3 state validation and conservative migration from v1/v2;
+- monotonic revisions, exclusive mutation locking, and write-ahead transaction recovery;
 - legal lifecycle transitions and `approve != continue`;
 - completion predicates and risk/workflow invariants;
-- blocker state and conservative rework invalidation;
-- pre-Implementation `reclassify`;
-- terminal `cancel`;
-- `doctor` diagnostics/repair;
-- repository-contained, size-limited artifact reads;
-- a committed zero-setup JavaScript runtime generated from TypeScript source.
+- blocker/reclassification/cancellation semantics;
+- artifact fingerprints and dependency-bound approval receipts;
+- Git-backed source snapshots and change manifests;
+- source-bound Review receipts;
+- executable Verification check receipts and required-check enforcement;
+- Verification receipts bound to source, verification artifact, selected evidence, and checks configuration;
+- source/evidence-bound Final Acceptance;
+- read-only freshness detection and explicit deterministic downstream invalidation;
+- repository-contained, size-limited reads/writes;
+- a zero-setup JavaScript runtime tested behaviorally against the TypeScript implementation.
 
-A rejected mutation must not advance revision or mutate workflow files. A crash during a committed transaction must leave enough journal information for deterministic repair or an explicit recovery conflict.
+A rejected mutation must not advance revision or mutate workflow files. A crash during a transaction must leave enough journal information for deterministic repair or an explicit recovery conflict.
 
-## Control files
+## Control and evidence files
 
 ```text
-aidlc-docs/aidlc-state.json   canonical workflow state
-aidlc-docs/.aidlc.lock        ephemeral exclusive mutation lock
-aidlc-docs/.aidlc-txn.json    ephemeral write-ahead transaction journal
+aidlc-docs/aidlc-state.json                 canonical workflow state
+aidlc-docs/.aidlc.lock                      ephemeral exclusive mutation lock
+aidlc-docs/.aidlc-txn.json                  ephemeral write-ahead journal
+aidlc-docs/changes/<change>/evidence.json   source/check evidence owned by engine
+aidlc-docs/project/checks.json              trusted project-owned check definitions
 ```
 
-## Deferred evidence contract
+`checks.json` is project configuration, not untrusted input. Commands execute without a shell. The engine stores compact result metadata/hashes rather than full stdout/stderr.
 
-v0.1.1 still validates artifact structure rather than freshness. v0.2 will bind approvals, review, and verification to hashes/source snapshots without changing lifecycle stages or approval semantics.
+## Freshness rule
+
+The engine does not infer that an old approval/review/verification still applies after its bound inputs change. `next` reports stale dependencies; `refresh` is the only normal operation that converts that observation into workflow invalidation/reopening.
+
+Markdown artifacts explain intent and results. Machine receipts prove which exact artifact/source/configuration versions those lifecycle decisions referred to.

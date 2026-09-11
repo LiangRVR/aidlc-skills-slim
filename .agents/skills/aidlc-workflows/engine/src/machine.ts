@@ -1,5 +1,6 @@
 import { EngineError } from './errors.js';
 import { checkDesign, checkImplementation, checkPlan, checkRequirements, checkReviewFail, checkReviewPass, checkVerification } from './predicates.js';
+import { emptyFreshness } from './receipts.js';
 import { assertValidState, assertWorkflowInvariants } from './validation.js';
 import { ENGINE_VERSION } from './types.js';
 import type { AidlcState, InitInput, LifecycleEvent, NextDirective } from './types.js';
@@ -27,7 +28,7 @@ export function createInitialState(input: InitInput, revision = 1): AidlcState {
   if (!input.request.trim()) throw new EngineError('INVALID_ARGUMENT', 'request is required');
   const base = `aidlc-docs/changes/${change}`;
   const state: AidlcState = {
-    schema_version: 2,
+    schema_version: 3,
     engine_version: ENGINE_VERSION,
     revision,
     active_change: change,
@@ -49,6 +50,8 @@ export function createInitialState(input: InitInput, revision = 1): AidlcState {
       final_acceptance: input.workflow.final_acceptance_required ? 'pending' : 'not_applicable',
     },
     blockers: [],
+    evidence_path: `${base}/evidence.json`,
+    freshness: emptyFreshness(),
   };
   assertValidState(state);
   return state;
@@ -125,7 +128,7 @@ export function unblockState(current: AidlcState, reason?: string, all = false):
   const next = cloneState(current);
   if (all) next.blockers = [];
   else { const trimmed = reason?.trim(); if (!trimmed) throw new EngineError('INVALID_ARGUMENT', 'unblock requires a blocker reason or --all'); next.blockers = next.blockers.filter((item) => item !== trimmed); }
-  if (next.blockers.length !== 0) throw new EngineError('BLOCKERS_REMAIN', 'unblock must resolve all blockers in v0.1.1', next.blockers);
+  if (next.blockers.length !== 0) throw new EngineError('BLOCKERS_REMAIN', 'unblock must resolve all blockers in v0.2', next.blockers);
   next.status = 'active'; assertValidState(next); return next;
 }
 
@@ -147,7 +150,7 @@ export function nextDirective(state: AidlcState): NextDirective {
   if (state.stage === 'plan' && state.status === 'approved_hold') return { ...base, action: 'await_continue', allowed_events: ['continue', 'request_changes', 'reclassify', 'cancel'], message: 'Plan is approved and held. continue enters implementation.' };
   if (state.stage === 'implementation') return { ...base, action: 'implement_plan', allowed_events: ['implementation_complete', 'block', 'cancel'], message: 'Execute the approved/current plan and keep its Work checkboxes current.' };
   if (state.stage === 'review') return { ...base, action: 'perform_review', allowed_events: ['review_pass', 'review_fail', 'block', 'cancel'], message: `Perform independent review and record ${state.artifacts.review}` };
-  if (state.stage === 'verification') return { ...base, action: 'verify_change', allowed_events: ['verification_complete', 'block', 'cancel'], message: `Verify acceptance criteria and record ${state.artifacts.verification}` };
+  if (state.stage === 'verification') return { ...base, action: 'verify_change', allowed_events: ['verification_complete', 'block', 'cancel'], message: `Run configured checks, verify acceptance criteria, and record ${state.artifacts.verification}` };
   if (state.stage === 'final_acceptance') return { ...base, action: 'await_final_acceptance', allowed_events: ['accept', 'request_changes', 'cancel'], message: 'Final acceptance is required.' };
   if (state.stage === 'cancelled') return { ...base, action: 'cancelled', allowed_events: [], message: 'Workflow was cancelled.' };
   return { ...base, action: 'complete', allowed_events: [], message: 'Workflow is complete.' };

@@ -79,7 +79,7 @@ test('pending transaction blocks normal reads and doctor can roll it forward', (
   assert.equal(engine.status().revision, 2);
 });
 
-test('migrate upgrades schema v1 state to schema v2', () => {
+test('migrate upgrades schema v1 state to schema v3 without inventing freshness receipts', () => {
   const project = root(); mkdirSync(join(project, 'aidlc-docs', 'changes', 'legacy'), { recursive: true });
   writeFileSync(join(project, 'aidlc-docs', 'changes', 'legacy', 'request.md'), '# Request\n\nLegacy.\n');
   const legacy = {
@@ -91,7 +91,9 @@ test('migrate upgrades schema v1 state to schema v2', () => {
   const engine = new AidlcEngine(project);
   expectCode(() => engine.status(), 'STATE_MIGRATION_REQUIRED');
   const migrated = engine.migrate();
-  assert.equal(migrated.schema_version, 2); assert.equal(migrated.revision, 1); assert.equal(migrated.engine_version, ENGINE_VERSION);
+  assert.equal(migrated.schema_version, 3); assert.equal(migrated.revision, 1); assert.equal(migrated.engine_version, ENGINE_VERSION);
+  assert.equal(migrated.evidence_path, 'aidlc-docs/changes/legacy/evidence.json');
+  assert.equal(migrated.freshness.requirements, null);
 });
 
 test('artifact symlink escaping project root is rejected', () => {

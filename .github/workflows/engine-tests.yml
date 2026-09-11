@@ -9,7 +9,9 @@ on:
       - '.agents/skills/aidlc-workflows/references/state.md'
       - '.agents/skills/aidlc-workflows/references/transition-contract.md'
       - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
-      - '.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json'
+      - '.agents/skills/aidlc-workflows/references/verification.md'
+      - '.agents/skills/aidlc-workflows/schemas/**'
+      - '.agents/skills/aidlc-workflows/templates/project/checks.json'
   pull_request:
     paths:
       - '.agents/skills/aidlc-workflows/engine/**'
@@ -18,7 +20,9 @@ on:
       - '.agents/skills/aidlc-workflows/references/state.md'
       - '.agents/skills/aidlc-workflows/references/transition-contract.md'
       - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
-      - '.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json'
+      - '.agents/skills/aidlc-workflows/references/verification.md'
+      - '.agents/skills/aidlc-workflows/schemas/**'
+      - '.agents/skills/aidlc-workflows/templates/project/checks.json'
 
 permissions:
   contents: read
@@ -41,6 +45,13 @@ jobs:
       - run: npm install --no-audit --no-fund
       - name: Test TypeScript implementation
         run: npm test
+      - name: Upload compiler-generated runtime
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-runtime-v0.2
+          path: .agents/skills/aidlc-workflows/engine/dist/src
+          if-no-files-found: error
       - name: Test committed zero-setup runtime with same suite
         run: npm run test-runtime
       - name: Smoke test prebuilt CLI
