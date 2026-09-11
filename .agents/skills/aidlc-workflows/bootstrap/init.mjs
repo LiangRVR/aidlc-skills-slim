@@ -167,6 +167,7 @@ async function copyMissingTree(source, target) {
   let copied = 0;
   await mkdir(target, { recursive: true });
   for (const entry of await readdir(source, { withFileTypes: true })) {
+    if (IGNORED_NAMES.has(entry.name) || entry.name === '.DS_Store') continue;
     const src = join(source, entry.name);
     const dst = join(target, entry.name);
     if (entry.isDirectory()) copied += await copyMissingTree(src, dst);
