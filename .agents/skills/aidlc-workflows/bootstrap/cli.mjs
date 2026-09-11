@@ -1,7 +1,16 @@
+import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { initProject } from './init.mjs';
+import { assertBootstrapPathsContained } from './safety.mjs';
 
 function help() {
   return `AI-DLC Slim CLI\n\nUsage:\n  aidlc init [--root <dir>] [--yes]\n  aidlc help\n`;
+}
+
+function effectiveProjectRoot(requestedRoot) {
+  const candidate = resolve(requestedRoot ?? process.cwd());
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel'], { cwd: candidate, encoding: 'utf8', shell: false });
+  return result.status === 0 ? result.stdout.trim() : candidate;
 }
 
 export async function runCli(argv) {
@@ -26,5 +35,6 @@ export async function runCli(argv) {
     throw new Error(`Unknown option: ${token}`);
   }
 
+  await assertBootstrapPathsContained(effectiveProjectRoot(root));
   await initProject({ root, yes });
 }
