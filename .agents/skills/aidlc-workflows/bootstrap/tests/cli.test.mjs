@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,4 +29,23 @@ test('aidlc init --yes bootstraps an existing repository non-interactively', asy
   assert.match(result.stdout, /Next step/);
   const checks = JSON.parse(await readFile(join(root, 'aidlc-docs', 'project', 'checks.json'), 'utf8'));
   assert.ok(checks.checks.test);
+});
+
+test('aidlc init refuses a managed path symlink that escapes the project', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'aidlc-cli-safe-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aidlc-cli-outside-'));
+  git(root, ['init']);
+  try {
+    await symlink(outside, join(root, '.agents'), process.platform === 'win32' ? 'junction' : 'dir');
+  } catch (error) {
+    if (error?.code === 'EPERM' || error?.code === 'EACCES') {
+      t.skip('symlink creation is not permitted on this runner');
+      return;
+    }
+    throw error;
+  }
+
+  const result = spawnSync(process.execPath, [CLI, 'init', '--root', root, '--yes'], { encoding: 'utf8', shell: false });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /resolves outside the project/);
 });
