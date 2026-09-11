@@ -6,13 +6,14 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "aidlc": ".agents/skills/aidlc-workflows/bin/aidlc.mjs"
+    "aidlc": "bin/aidlc.mjs"
   },
   "files": [
+    "bin/",
     ".agents/skills/aidlc-workflows/"
   ],
   "scripts": {
-    "aidlc": "node .agents/skills/aidlc-workflows/bin/aidlc.mjs",
+    "aidlc": "node bin/aidlc.mjs",
     "test:bootstrap": "node --test .agents/skills/aidlc-workflows/bootstrap/tests/init.test.mjs .agents/skills/aidlc-workflows/bootstrap/tests/cli.test.mjs .agents/skills/aidlc-workflows/bootstrap/tests/package-smoke.test.mjs"
   },
   "engines": {
