@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, realpath } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -106,7 +106,7 @@ test('bootstrap resolves a nested working directory to the Git project root', as
   await mkdir(nested, { recursive: true });
   await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'nested-app' }));
   const result = await initProject({ root: nested, yes: true });
-  assert.equal(result.root, root);
+  assert.equal(await realpath(result.root), await realpath(root));
   assert.ok(existsSync(join(root, 'aidlc-docs', 'project', 'brief.md')));
   assert.equal(existsSync(join(nested, 'aidlc-docs')), false);
 });
@@ -114,7 +114,7 @@ test('bootstrap resolves a nested working directory to the Git project root', as
 test('non-interactive bootstrap initializes Git when the target directory is not a repository', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aidlc-no-git-'));
   const result = await initProject({ root, yes: true });
-  assert.equal(result.root, root);
+  assert.equal(await realpath(result.root), await realpath(root));
   assert.ok(existsSync(join(root, '.git')));
   assert.equal(result.doctor.ok, true);
 });
