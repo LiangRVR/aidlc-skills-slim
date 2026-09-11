@@ -62,7 +62,7 @@ jobs:
         run: npm run test-runtime
       - name: Smoke test prebuilt engine CLI
         run: node bin/aidlc-engine.mjs help
-      - name: Test guided bootstrap CLI
-        run: node --test ../bootstrap/tests/init.test.mjs ../bootstrap/tests/cli.test.mjs
+      - name: Test guided bootstrap and packaged CLI
+        run: node --test ../bootstrap/tests/init.test.mjs ../bootstrap/tests/cli.test.mjs ../bootstrap/tests/package-smoke.test.mjs
       - name: Smoke test user-facing CLI
         run: node ../bin/aidlc.mjs help
