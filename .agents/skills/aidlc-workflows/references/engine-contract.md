@@ -1,95 +1,38 @@
 # AI-DLC Slim Engine Contract
 
-This document defines the boundary between semantic agent judgment and the implemented deterministic engine v0.1.
+The active agent owns semantic judgment. The deterministic engine owns bookkeeping and integrity.
 
-## Judgment owned by the active agent
+## Agent-owned judgment
 
-The active parent agent decides:
+Risk classification, workflow flags, requirements/design quality, implementation choices, delegation, independent-review judgment, and verification meaning remain outside the engine.
 
-- risk level;
-- whether Design is required;
-- whether a planning gate is required;
-- whether independent Review is required;
-- whether final acceptance is required;
-- whether automatic security rules apply;
-- semantic quality of Requirements, Design, Plan, implementation, Review, and Verification;
-- how implementation work is executed or delegated.
+## Engine-owned guarantees
 
-These routing decisions are persisted. If new pre-Implementation evidence changes them, the agent must use explicit engine `reclassify`; it must not edit state directly.
+Engine v0.1.1 enforces:
 
-## Bookkeeping owned by the engine
+- schema-v2 state validation and migration from v1;
+- monotonic state revisions;
+- exclusive mutation locking;
+- write-ahead transaction recovery;
+- legal lifecycle transitions and `approve != continue`;
+- completion predicates and risk/workflow invariants;
+- blocker state and conservative rework invalidation;
+- pre-Implementation `reclassify`;
+- terminal `cancel`;
+- `doctor` diagnostics/repair;
+- repository-contained, size-limited artifact reads;
+- a committed zero-setup JavaScript runtime generated from TypeScript source.
 
-The engine owns:
+A rejected mutation must not advance revision or mutate workflow files. A crash during a committed transaction must leave enough journal information for deterministic repair or an explicit recovery conflict.
 
-- state validation against the version-1 contract;
-- legal/illegal transition enforcement;
-- gate state and approval/continue separation;
-- stage sequencing;
-- mechanically testable completion predicates;
-- workflow invariants;
-- blocker state;
-- explicit pre-Implementation reclassification;
-- conservative downstream invalidation after rework;
-- atomic state writes and lifecycle-audit mutations.
+## Control files
 
-The engine never selects models, agents, providers, tools, architecture, or product decisions.
-
-## Implementation
-
-Engine source lives at `engine/src/`. Its CLI is built to `engine/dist/src/cli.js`.
-
-Runtime requirements:
-
-- Node.js 20+
-- zero runtime dependencies
-- TypeScript only as a build/development dependency
-
-Build/test:
-
-```bash
-cd .agents/skills/aidlc-workflows/engine
-npm install
-npm test
+```text
+aidlc-docs/aidlc-state.json   canonical workflow state
+aidlc-docs/.aidlc.lock        ephemeral exclusive mutation lock
+aidlc-docs/.aidlc-txn.json    ephemeral write-ahead transaction journal
 ```
 
-## v0.1 command surface
+## Deferred evidence contract
 
-- `init` — create validated state from explicit routing decisions and preserve the original request.
-- `next` — read-only; return the single current workflow directive.
-- `status` — read-only; return validated state.
-- `reclassify` — replace risk/routing before Implementation; invalidate Plan approval/downstream progress conservatively.
-- `report <event>` — apply a stage/review/verification event after predicates pass.
-- `approve` — planning approval with hold.
-- `continue` — planning approval/continuation into Implementation.
-- `request-changes` — reopen the applicable gate/stage.
-- `block` / `unblock` — manage blocker state.
-
-`next` and `status` never mutate state. Lifecycle mutation must go through the engine; direct edits to `aidlc-state.json` are recovery-only.
-
-## Atomicity
-
-A mutation:
-
-1. reads and validates current state;
-2. validates event legality and applicable completion predicates;
-3. computes next state in memory;
-4. validates next-state structure and workflow invariants;
-5. atomically replaces the state file;
-6. appends an audit record when required by the audit policy.
-
-Rejected events leave state byte-for-byte unchanged. For audited gate/reclassification mutations, an audit-write failure restores the prior state.
-
-## JSON Schema
-
-`schemas/aidlc-state.schema.json` remains the canonical external state format. v0.1 uses an internal schema-equivalent validator to avoid a runtime JSON Schema dependency. Any schema change must update validator and tests together.
-
-## Deferred to v0.2
-
-- artifact SHA-256 receipts;
-- review freshness tied to artifact/source hashes;
-- executable verification receipts;
-- source manifests;
-- hash-driven downstream invalidation;
-- runtime-specific hooks/plugins.
-
-These additions must not change lifecycle stages or approval semantics without a new schema/contract version.
+v0.1.1 still validates artifact structure rather than freshness. v0.2 will bind approvals, review, and verification to hashes/source snapshots without changing lifecycle stages or approval semantics.

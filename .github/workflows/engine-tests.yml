@@ -4,14 +4,18 @@ on:
   push:
     paths:
       - '.agents/skills/aidlc-workflows/engine/**'
+      - '.agents/skills/aidlc-workflows/SKILL.md'
       - '.agents/skills/aidlc-workflows/references/engine-*.md'
+      - '.agents/skills/aidlc-workflows/references/state.md'
       - '.agents/skills/aidlc-workflows/references/transition-contract.md'
       - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
       - '.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json'
   pull_request:
     paths:
       - '.agents/skills/aidlc-workflows/engine/**'
+      - '.agents/skills/aidlc-workflows/SKILL.md'
       - '.agents/skills/aidlc-workflows/references/engine-*.md'
+      - '.agents/skills/aidlc-workflows/references/state.md'
       - '.agents/skills/aidlc-workflows/references/transition-contract.md'
       - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
       - '.agents/skills/aidlc-workflows/schemas/aidlc-state.schema.json'
@@ -21,7 +25,11 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: .agents/skills/aidlc-workflows/engine
@@ -31,4 +39,9 @@ jobs:
         with:
           node-version: '20'
       - run: npm install --no-audit --no-fund
-      - run: npm test
+      - name: Test TypeScript implementation
+        run: npm test
+      - name: Test committed zero-setup runtime with same suite
+        run: npm run test-runtime
+      - name: Smoke test prebuilt CLI
+        run: node bin/aidlc-engine.mjs help

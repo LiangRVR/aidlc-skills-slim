@@ -17,15 +17,9 @@ function parseArgs(argv: string[]): ParsedArgs {
     if (token.startsWith('--')) {
       const key = token.slice(2);
       const next = argv[i + 1];
-      if (next !== undefined && !next.startsWith('--')) {
-        parsed.options.set(key, next);
-        i += 1;
-      } else {
-        parsed.options.set(key, true);
-      }
-    } else {
-      parsed.positional.push(token);
-    }
+      if (next !== undefined && !next.startsWith('--')) { parsed.options.set(key, next); i += 1; }
+      else parsed.options.set(key, true);
+    } else parsed.positional.push(token);
   }
   return parsed;
 }
@@ -54,68 +48,49 @@ function workflowOptions(args: ParsedArgs): WorkflowFlags {
   };
 }
 
-function print(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
-}
+function print(value: unknown): void { process.stdout.write(`${JSON.stringify(value, null, 2)}\n`); }
 
 function usage(): string {
-  return `AI-DLC Slim Engine v0.1\n\nUsage:\n  aidlc-engine init --change <id> --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> --request <text> [--root <dir>]\n  aidlc-engine next [--root <dir>]\n  aidlc-engine status [--root <dir>]\n  aidlc-engine reclassify --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> [--root <dir>]\n  aidlc-engine report <requirements_complete|design_complete|plan_complete|implementation_complete|review_pass|review_fail|verification_complete|accept> [--root <dir>]\n  aidlc-engine approve [--root <dir>]\n  aidlc-engine continue [--root <dir>]\n  aidlc-engine request-changes [--root <dir>]\n  aidlc-engine block --reason <text> [--root <dir>]\n  aidlc-engine unblock (--reason <exact-text>|--all) [--root <dir>]\n`;
+  return `AI-DLC Slim Engine v0.1.1\n\nUsage:\n  aidlc-engine init --change <id> --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> --request <text> [--root <dir>]\n  aidlc-engine next [--root <dir>]\n  aidlc-engine status [--root <dir>]\n  aidlc-engine doctor [--repair] [--root <dir>]\n  aidlc-engine migrate [--root <dir>]\n  aidlc-engine reclassify --risk <low|standard|high> --risk-rationale <text> --design-required <bool> --planning-gate-required <bool> --review-required <bool> --final-acceptance-required <bool> --security-required <bool> [--root <dir>]\n  aidlc-engine report <requirements_complete|design_complete|plan_complete|implementation_complete|review_pass|review_fail|verification_complete|accept> [--root <dir>]\n  aidlc-engine approve [--root <dir>]\n  aidlc-engine continue [--root <dir>]\n  aidlc-engine request-changes [--root <dir>]\n  aidlc-engine block --reason <text> [--root <dir>]\n  aidlc-engine unblock (--reason <exact-text>|--all) [--root <dir>]\n  aidlc-engine cancel --reason <text> [--root <dir>]\n`;
 }
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.command || args.command === 'help' || args.options.has('help')) {
-    process.stdout.write(usage());
-    return;
-  }
-
+  if (!args.command || args.command === 'help' || args.options.has('help')) { process.stdout.write(usage()); return; }
   const root = optionString(args, 'root') ?? process.cwd();
   const engine = new AidlcEngine(root);
 
   switch (args.command) {
     case 'init': {
-      const risk = optionString(args, 'risk', true)!;
-      assertRisk(risk);
-      const input: InitInput = {
-        active_change: optionString(args, 'change', true)!,
-        risk,
-        risk_rationale: optionString(args, 'risk-rationale', true)!,
-        workflow: workflowOptions(args),
-        request: optionString(args, 'request', true)!,
-      };
-      print(engine.init(input));
-      break;
+      const risk = optionString(args, 'risk', true)!; assertRisk(risk);
+      const input: InitInput = { active_change: optionString(args, 'change', true)!, risk, risk_rationale: optionString(args, 'risk-rationale', true)!, workflow: workflowOptions(args), request: optionString(args, 'request', true)! };
+      print(engine.init(input)); break;
     }
     case 'next': print(engine.next()); break;
     case 'status': print(engine.status()); break;
+    case 'doctor': print(engine.doctor(args.options.get('repair') === true)); break;
+    case 'migrate': print(engine.migrate()); break;
     case 'reclassify': {
-      const risk = optionString(args, 'risk', true)!;
-      assertRisk(risk);
-      print(engine.reclassify({
-        risk,
-        risk_rationale: optionString(args, 'risk-rationale', true)!,
-        workflow: workflowOptions(args),
-      }));
-      break;
+      const risk = optionString(args, 'risk', true)!; assertRisk(risk);
+      print(engine.reclassify({ risk, risk_rationale: optionString(args, 'risk-rationale', true)!, workflow: workflowOptions(args) })); break;
     }
     case 'report': {
       const event = args.positional[0] as LifecycleEvent | undefined;
       if (!event) throw new EngineError('USAGE', 'report requires an event');
-      print(engine.report(event));
-      break;
+      print(engine.report(event)); break;
     }
     case 'approve': print(engine.approve()); break;
     case 'continue': print(engine.continue()); break;
     case 'request-changes': print(engine.requestChanges()); break;
     case 'block': print(engine.block(optionString(args, 'reason', true)!)); break;
     case 'unblock': print(engine.unblock(optionString(args, 'reason'), args.options.get('all') === true)); break;
+    case 'cancel': print(engine.cancel(optionString(args, 'reason', true)!)); break;
     default: throw new EngineError('USAGE', `Unknown command: ${args.command}`);
   }
 }
 
-try {
-  main();
-} catch (error) {
+try { main(); }
+catch (error) {
   if (error instanceof EngineError) {
     process.stderr.write(`${JSON.stringify({ ok: false, error: error.code, message: error.message, details: error.details ?? [] }, null, 2)}\n`);
     process.exitCode = error.code === 'USAGE' ? 2 : 1;

@@ -1,3 +1,5 @@
+export const ENGINE_VERSION = '0.1.1';
+
 export type Risk = 'low' | 'standard' | 'high';
 
 export type Stage =
@@ -8,7 +10,8 @@ export type Stage =
   | 'review'
   | 'verification'
   | 'final_acceptance'
-  | 'complete';
+  | 'complete'
+  | 'cancelled';
 
 export type Status =
   | 'active'
@@ -16,7 +19,8 @@ export type Status =
   | 'approved_hold'
   | 'blocked'
   | 'awaiting_acceptance'
-  | 'complete';
+  | 'complete'
+  | 'cancelled';
 
 export type ProgressState = 'pending' | 'active' | 'complete' | 'skipped' | 'not_applicable';
 
@@ -56,7 +60,9 @@ export interface Progress {
 }
 
 export interface AidlcState {
-  schema_version: 1;
+  schema_version: 2;
+  engine_version: string;
+  revision: number;
   active_change: string | null;
   risk: Risk;
   risk_rationale: string;
@@ -93,6 +99,7 @@ export interface InitInput {
 export interface NextDirective {
   stage: Stage;
   status: Status;
+  revision: number;
   action:
     | 'write_requirements'
     | 'write_design'
@@ -104,7 +111,28 @@ export interface NextDirective {
     | 'verify_change'
     | 'await_final_acceptance'
     | 'resolve_blockers'
-    | 'complete';
+    | 'complete'
+    | 'cancelled';
   allowed_events: string[];
   message: string;
+}
+
+export interface DoctorCheck {
+  name: string;
+  status: 'pass' | 'warn' | 'fail';
+  message: string;
+}
+
+export interface DoctorReport {
+  ok: boolean;
+  engine_version: string;
+  repaired: string[];
+  checks: DoctorCheck[];
+  state?: {
+    schema_version: number;
+    revision?: number;
+    active_change?: string | null;
+    stage?: string;
+    status?: string;
+  };
 }
