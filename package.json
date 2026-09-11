@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "aidlc": "node .agents/skills/aidlc-workflows/bin/aidlc.mjs",
-    "test:bootstrap": "node --test .agents/skills/aidlc-workflows/bootstrap/tests/init.test.mjs .agents/skills/aidlc-workflows/bootstrap/tests/cli.test.mjs"
+    "test:bootstrap": "node --test .agents/skills/aidlc-workflows/bootstrap/tests/init.test.mjs .agents/skills/aidlc-workflows/bootstrap/tests/cli.test.mjs .agents/skills/aidlc-workflows/bootstrap/tests/package-smoke.test.mjs"
   },
   "engines": {
     "node": ">=20"
