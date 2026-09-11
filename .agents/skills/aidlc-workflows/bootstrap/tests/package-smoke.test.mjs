@@ -19,6 +19,12 @@ test('packed npm artifact exposes aidlc and installs the complete Skill', async 
   assert.equal(packed.status, 0, packed.stderr);
   const metadata = JSON.parse(packed.stdout);
   assert.ok(Array.isArray(metadata) && metadata[0]?.filename, packed.stdout);
+
+  const packedFiles = new Set((metadata[0].files ?? []).map((item) => item.path));
+  assert.ok(packedFiles.has('bin/aidlc.mjs'), 'package is missing the npm aidlc launcher');
+  assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/SKILL.md'), 'package is missing SKILL.md');
+  assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs'), 'package is missing the engine runtime entrypoint');
+
   const tarball = join(REPO_ROOT, metadata[0].filename);
   const root = await mkdtemp(join(tmpdir(), 'aidlc-packed-'));
 
