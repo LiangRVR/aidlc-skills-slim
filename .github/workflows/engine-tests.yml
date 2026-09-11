@@ -1,8 +1,11 @@
-name: Engine tests
+name: AI-DLC tests
 
 on:
   push:
     paths:
+      - 'package.json'
+      - '.agents/skills/aidlc-workflows/bin/**'
+      - '.agents/skills/aidlc-workflows/bootstrap/**'
       - '.agents/skills/aidlc-workflows/engine/**'
       - '.agents/skills/aidlc-workflows/SKILL.md'
       - '.agents/skills/aidlc-workflows/references/engine-*.md'
@@ -11,9 +14,12 @@ on:
       - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
       - '.agents/skills/aidlc-workflows/references/verification.md'
       - '.agents/skills/aidlc-workflows/schemas/**'
-      - '.agents/skills/aidlc-workflows/templates/project/checks.json'
+      - '.agents/skills/aidlc-workflows/templates/**'
   pull_request:
     paths:
+      - 'package.json'
+      - '.agents/skills/aidlc-workflows/bin/**'
+      - '.agents/skills/aidlc-workflows/bootstrap/**'
       - '.agents/skills/aidlc-workflows/engine/**'
       - '.agents/skills/aidlc-workflows/SKILL.md'
       - '.agents/skills/aidlc-workflows/references/engine-*.md'
@@ -22,7 +28,7 @@ on:
       - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
       - '.agents/skills/aidlc-workflows/references/verification.md'
       - '.agents/skills/aidlc-workflows/schemas/**'
-      - '.agents/skills/aidlc-workflows/templates/project/checks.json'
+      - '.agents/skills/aidlc-workflows/templates/**'
 
 permissions:
   contents: read
@@ -54,5 +60,9 @@ jobs:
           if-no-files-found: error
       - name: Test committed zero-setup runtime with same suite
         run: npm run test-runtime
-      - name: Smoke test prebuilt CLI
+      - name: Smoke test prebuilt engine CLI
         run: node bin/aidlc-engine.mjs help
+      - name: Test guided bootstrap CLI
+        run: node --test ../bootstrap/tests/init.test.mjs ../bootstrap/tests/cli.test.mjs
+      - name: Smoke test user-facing CLI
+        run: node ../bin/aidlc.mjs help
