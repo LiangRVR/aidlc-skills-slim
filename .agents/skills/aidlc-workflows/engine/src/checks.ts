@@ -1,5 +1,5 @@
 import { existsSync, statSync } from 'node:fs';
-import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { EngineError } from './errors.js';
 import { hashArtifact, sha256Text } from './hashing.js';
@@ -78,7 +78,7 @@ function quoteWindowsPackageArg(value: string): string {
   return `"${value}"`;
 }
 
-function spawnCheck(definition: CheckDefinition, cwd: string): SpawnSyncReturns<string> {
+function spawnCheck(definition: CheckDefinition, cwd: string) {
   const [program, ...args] = definition.command;
   if (process.platform === 'win32' && WINDOWS_PACKAGE_SHIMS.has(program.toLowerCase())) {
     const shim = program.toLowerCase().endsWith('.cmd') ? program : `${program}.cmd`;
