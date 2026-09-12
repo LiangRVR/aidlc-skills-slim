@@ -11,7 +11,7 @@ const MAX_CHECK_OUTPUT = 8 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 30 * 60 * 1000;
 const WINDOWS_PACKAGE_SHIMS = new Set(['npm', 'npm.cmd', 'npx', 'npx.cmd', 'pnpm', 'pnpm.cmd', 'pnpx', 'pnpx.cmd', 'yarn', 'yarn.cmd', 'yarnpkg', 'yarnpkg.cmd']);
-const WINDOWS_CMD_UNSAFE = /[\r\n"&|<>^%!()]/;
+const WINDOWS_PACKAGE_TOKEN = /^[A-Za-z0-9_./:@=+,\-\\]+$/;
 function isObject(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -70,16 +70,16 @@ function commonSpawnOptions(cwd, definition) {
         env: process.env,
     };
 }
-function quoteWindowsPackageToken(value) {
-    if (WINDOWS_CMD_UNSAFE.test(value))
-        throw new EngineError('INVALID_CHECK_CONFIG', 'Windows package-manager check arguments may not contain shell metacharacters');
-    return `"${value}"`;
+function assertWindowsPackageToken(value) {
+    if (!WINDOWS_PACKAGE_TOKEN.test(value))
+        throw new EngineError('INVALID_CHECK_CONFIG', 'Windows package-manager check arguments must use shell-safe tokens without spaces or metacharacters; move complex arguments into a package script');
+    return value;
 }
 function spawnCheck(definition, cwd) {
     const [program, ...args] = definition.command;
     if (process.platform === 'win32' && WINDOWS_PACKAGE_SHIMS.has(program.toLowerCase())) {
         const shim = program.toLowerCase().endsWith('.cmd') ? program : `${program}.cmd`;
-        const commandLine = [shim, ...args].map(quoteWindowsPackageToken).join(' ');
+        const commandLine = [shim, ...args].map(assertWindowsPackageToken).join(' ');
         return spawnSync(commandLine, [], {
             ...commonSpawnOptions(cwd, definition),
             shell: process.env.ComSpec ?? true,
