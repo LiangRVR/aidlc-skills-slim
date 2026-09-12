@@ -16,7 +16,8 @@ function run(cmd, args, cwd, { shell = false } = {}) {
 
 function npm(args, cwd) {
   // Windows exposes npm through a .cmd shim, which requires shell dispatch.
-  // This is test-harness-only; production AI-DLC verification commands still use shell:false.
+  // This is test-harness-only; production AI-DLC verification commands keep shell:false
+  // and use a narrowly scoped cmd.exe adapter only for known package-manager shims.
   return run('npm', args, cwd, { shell: process.platform === 'win32' });
 }
 
@@ -29,6 +30,7 @@ test('packed npm artifact exposes aidlc and installs the complete Skill', async 
   const packedFiles = new Set((metadata[0].files ?? []).map((item) => item.path));
   assert.ok(packedFiles.has('bin/aidlc.mjs'), 'package is missing the npm aidlc launcher');
   assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/SKILL.md'), 'package is missing SKILL.md');
+  assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/bootstrap/installation.json'), 'package is missing the Skill installation version marker');
   assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs'), 'package is missing the engine runtime entrypoint');
 
   const tarball = join(REPO_ROOT, metadata[0].filename);
@@ -42,6 +44,7 @@ test('packed npm artifact exposes aidlc and installs the complete Skill', async 
     assert.equal(execution.status, 0, `${execution.error?.message ?? ''}\n${execution.stdout}\n${execution.stderr}`);
     assert.match(execution.stdout, /AI-DLC Slim setup/);
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'SKILL.md')));
+    assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'bootstrap', 'installation.json')));
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'engine', 'bin', 'aidlc-engine.mjs')));
     assert.ok(existsSync(join(root, 'aidlc-docs', 'project', 'brief.md')));
   } finally {
