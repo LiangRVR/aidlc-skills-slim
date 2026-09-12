@@ -81,7 +81,8 @@ function spawnCheck(definition, cwd) {
     if (process.platform === 'win32' && WINDOWS_PACKAGE_SHIMS.has(program.toLowerCase())) {
         const shim = program.toLowerCase().endsWith('.cmd') ? program : `${program}.cmd`;
         const commandLine = [shim, ...args.map(quoteWindowsPackageArg)].join(' ');
-        return spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', commandLine], commonSpawnOptions(cwd, definition));
+        const cmdPayload = `"${commandLine}"`;
+        return spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', cmdPayload], commonSpawnOptions(cwd, definition));
     }
     return spawnSync(program, args, commonSpawnOptions(cwd, definition));
 }
