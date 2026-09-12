@@ -56,5 +56,5 @@ test('Windows package-manager adapter rejects command-shell metacharacters', { s
     },
   };
 
-  assert.throws(() => executeCheck(root, 'unsafe', config), /shell metacharacters/);
+  assert.throws(() => executeCheck(root, 'unsafe', config), /shell-safe tokens|metacharacters/);
 });
