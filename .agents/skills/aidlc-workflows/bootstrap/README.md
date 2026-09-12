@@ -27,20 +27,26 @@ The initializer inspects before it asks. It:
 - detects common stacks, package managers, repository configuration, and verification scripts;
 - ignores placeholder test commands that should not become verification evidence;
 - asks only for important information that is still missing or cannot be safely inferred;
+- offers to complete recognized `TBD` baseline placeholders instead of treating file existence alone as completion;
 - keeps undecided greenfield stack/architecture choices explicitly undecided rather than inventing them;
-- installs or repairs the repository-local `.agents/skills/aidlc-workflows/` tree without overwriting existing Skill files;
+- installs or repairs the repository-local `.agents/skills/aidlc-workflows/` tree without overwriting existing same-version Skill files;
+- refuses mixed-version repair when an existing Skill has a missing, invalid, or different installation version marker;
 - preserves existing `AGENTS.md` and `aidlc-docs/project/*` context;
 - creates only missing durable project files and `checks.json`;
 - validates an existing `checks.json` instead of silently replacing an invalid one;
+- performs bounded, project-contained reads of repository metadata used for detection;
+- rejects managed/setup paths that resolve outside the project through symlinks;
 - runs the existing engine `doctor` after setup without inventing workflow state.
 
 Typical interactive questions include project purpose, primary users/operators, whether the project is already used by real users, whether sensitive/security-critical information is involved, confirmation of an inferred stack, and which detected verification commands should be part of the project contract.
 
 For a greenfield project where the technology stack has not been decided, the generated baseline records that decision as pending so Requirements/Design can make it later.
 
-## Existing setup
+## Existing setup and repair
 
-`aidlc init` is intended to be idempotent. Running it again preserves existing project-owned context and repairs only missing setup files.
+`aidlc init` is intended to be idempotent. Running it again preserves existing project-owned context and repairs missing setup files only when the installed Skill carries the same installation version marker as the initializer.
+
+This restriction prevents an old engine/runtime from being silently mixed with files from a newer Skill. If an existing Skill has no version marker or reports a different version, `aidlc init` stops and tells you to back up/remove that Skill before installing the new one.
 
 If an AI-DLC workflow is already active, its state is preserved. Bootstrap never uses project initialization as a lifecycle stage.
 
@@ -52,7 +58,7 @@ For non-interactive/default-accepting setup:
 aidlc init --yes
 ```
 
-`--yes` selects conservative defaults: detected required checks are configured, optional checks are not automatically promoted to required, existing files remain untouched, and an undecided greenfield stack stays undecided.
+`--yes` selects conservative defaults: detected required checks are configured, optional checks are not automatically promoted to required, existing project-owned files remain untouched except recognized fillable placeholders, and an undecided greenfield stack stays undecided.
 
 A different target can be supplied with:
 
