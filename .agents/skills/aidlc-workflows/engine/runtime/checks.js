@@ -80,7 +80,7 @@ function spawnCheck(definition, cwd) {
     if (process.platform === 'win32' && WINDOWS_PACKAGE_SHIMS.has(program.toLowerCase())) {
         const shim = program.toLowerCase().endsWith('.cmd') ? program : `${program}.cmd`;
         const commandLine = [shim, ...args].map(assertWindowsPackageToken).join(' ');
-        return spawnSync(commandLine, [], {
+        return spawnSync(commandLine, {
             ...commonSpawnOptions(cwd, definition),
             shell: process.env.ComSpec ?? true,
         });
