@@ -17,7 +17,7 @@ It does **not** hardcode OMO Slim, OpenCode, model names, providers, specialist 
 
 ## Quick Start
 
-If you only want to use the system, start here. You do not need to operate the state machine manually during normal AI-assisted work.
+If you only want to use AI-DLC Slim, start here. You do **not** need to understand the state-machine internals or manually create the AI-DLC directory structure first.
 
 ### 1. Requirements
 
@@ -25,64 +25,133 @@ You need:
 
 - **Node.js 20+**
 - **Git**
-- a coding agent/runtime capable of loading the AI-DLC Skill instructions
+- a coding agent/runtime capable of loading repository-local Skill instructions
 
-Normal use does **not** require `npm install` or TypeScript compilation. A prebuilt JavaScript runtime is included.
+The included runtime is prebuilt JavaScript. Using AI-DLC Slim does not require compiling the TypeScript engine.
 
-### 2. Install the Skill in your project
+### 2. Run the guided initializer
 
-For a repository-local installation, place the complete Skill directory at:
+From the root of the project you want AI-DLC Slim to manage, run:
 
-```text
-.agents/skills/aidlc-workflows/
+```bash
+npm exec --yes --package=github:LiangRVR/aidlc-skills-slim -- aidlc init
 ```
 
-The important entry point is:
+This downloads the current AI-DLC Slim package from the GitHub repository, runs the user-facing initializer, and installs the repository-local Skill into the project.
 
-```text
-.agents/skills/aidlc-workflows/SKILL.md
+If you already have this repository cloned locally, you can run the same initializer directly:
+
+```bash
+node /path/to/aidlc-skills-slim/bin/aidlc.mjs init --root /path/to/your-project
 ```
 
-If your coding runtime uses a different Skill location, install the directory in the equivalent location while keeping its internal files together.
+The normal interactive command is simply:
 
-The repository also contains optional starter templates under:
+```bash
+aidlc init
+```
+
+when the `aidlc` package binary is already available in your environment.
+
+`aidlc init` is a **project bootstrap command**. It is intentionally different from `aidlc-engine init`, which initializes one individual software change after the project has already been configured.
 
 ```text
-.agents/skills/aidlc-workflows/templates/
+aidlc init
+    ↓
+Configure / inspect the PROJECT
+
+User requests a change
+    ↓
+aidlc-engine init
+    ↓
+Initialize that CHANGE
+```
+
+Project bootstrap is not an AI-DLC lifecycle stage.
+
+### 3. Let the initializer inspect before you answer questions
+
+The initializer works **inspect first, ask second**. It will:
+
+- resolve the Git project root;
+- offer to initialize Git when the directory is not yet a repository;
+- distinguish a greenfield project from an existing/brownfield project;
+- inspect common project files and dependencies;
+- detect common Node.js, TypeScript, React, Next.js, Vite, Express, Supabase, Prisma, Python, Rust, Go, Docker, and GitHub Actions signals;
+- detect useful verification candidates such as tests, type checks, builds, linting, `pytest`, `cargo test`, and `go test`;
+- ask only for important project information that cannot be safely inferred;
+- install or repair `.agents/skills/aidlc-workflows/` without overwriting existing Skill files;
+- preserve an existing `AGENTS.md` and existing `aidlc-docs/project/*` context;
+- create only missing durable project context;
+- create a safe starter `checks.json` from approved/detected verification commands;
+- validate an existing `checks.json` instead of silently replacing it;
+- run the engine `doctor` at the end;
+- leave lifecycle state untouched — initialization does not create a fake change.
+
+A typical existing-project run may look like:
+
+```text
+AI-DLC Slim setup
+
+Project type: brownfield
+Detected stack: Node.js, TypeScript, React, Vite
+Detected checks: npm run test, npm run typecheck, npm run build
+
+? What is this product/project primarily for?
+? Who are the primary users or operators?
+? Is this already used in production or by real users?
+? Does it handle sensitive/personal or security-critical data?
+? I detected Node.js, TypeScript, React, Vite. Is that materially correct?
+? Add npm run test as a required AI-DLC verification check?
+...
+
+Setup summary
+✓ Skill installed/repaired
+✓ Project context created/preserved
+✓ Verification configuration created/validated
+✓ Doctor healthy
+
+Next step:
+  Tell your coding agent:
+  "Use AI-DLC Slim to implement <your change>."
+```
+
+For a **greenfield project**, the initializer does not invent architecture or a technology stack. If the stack has not been decided, it records that explicitly and leaves the decision for Requirements/Design when enough information exists.
+
+### 4. Know what was created
+
+After initialization, the important repository-local pieces are:
+
+```text
+project/
 ├── AGENTS.md
-└── project/
-    ├── brief.md
-    ├── architecture.md
-    ├── tech-stack.md
-    ├── testing.md
-    └── checks.json
+├── .agents/
+│   └── skills/
+│       └── aidlc-workflows/
+│           ├── SKILL.md
+│           ├── references/
+│           ├── schemas/
+│           ├── templates/
+│           └── engine/
+└── aidlc-docs/
+    └── project/
+        ├── brief.md
+        ├── architecture.md
+        ├── tech-stack.md
+        ├── testing.md
+        ├── checks.json
+        └── decisions/
 ```
 
-Use these to bootstrap a new project's durable AI-DLC context. Do not overwrite useful project documentation just to match the templates.
+The durable project files are intentionally small and should contain only project knowledge that is important, non-obvious, expensive, or unsafe to rediscover.
 
-### 3. Bootstrap project context
+Running `aidlc init` again is safe and idempotent. Existing project context is preserved, while missing Skill/setup files can be repaired.
 
-AI-DLC keeps durable project knowledge under:
+### 5. Ask your coding agent to use AI-DLC
 
-```text
-aidlc-docs/project/
-├── brief.md
-├── architecture.md
-├── tech-stack.md
-├── testing.md
-├── checks.json             # optional executable verification contract
-└── decisions/              # ADRs only when genuinely useful
-```
+Once setup is healthy, normal usage happens through your coding agent rather than by manually operating the engine.
 
-For an **existing project**, the agent should inspect the repository and synthesize only the important facts that are expensive or unsafe to rediscover. It should prefer observed facts over assumptions.
-
-For a **new project**, populate the baseline from approved Requirements and Design decisions rather than prematurely inventing stack or architecture choices.
-
-A root `AGENTS.md` should stay short. Its job is to route the agent toward durable project context and record project-wide gotchas or protected areas, not duplicate the repository.
-
-### 4. Ask your coding agent to use AI-DLC
-
-A normal user interaction can be as simple as:
+For example:
 
 ```text
 Use AI-DLC Slim to add CSV export to the admin orders page.
@@ -94,9 +163,9 @@ Or:
 Implement this change using AI-DLC Slim. Continue through the workflow until you need my approval.
 ```
 
-The agent should then handle the engine commands, artifacts, state transitions, verification receipts, and freshness checks itself.
+The agent should handle preflight, engine commands, workflow artifacts, risk routing, state transitions, verification receipts, freshness checks, and delegated work itself.
 
-### 5. Respond when AI-DLC reaches a gate
+### 6. Respond when AI-DLC reaches a gate
 
 The most important user responses are:
 
@@ -113,6 +182,35 @@ accept       Final acceptance when the workflow asks for it.
 `approve` and `continue` intentionally mean different things.
 
 If you say only `approve`, implementation should **not** begin.
+
+### Manual/offline installation
+
+If you do not want to run the package/bootstrap command, you may install AI-DLC Slim manually by copying the complete Skill directory to:
+
+```text
+.agents/skills/aidlc-workflows/
+```
+
+The Skill entry point is:
+
+```text
+.agents/skills/aidlc-workflows/SKILL.md
+```
+
+Starter templates are available under:
+
+```text
+.agents/skills/aidlc-workflows/templates/
+├── AGENTS.md
+└── project/
+    ├── brief.md
+    ├── architecture.md
+    ├── tech-stack.md
+    ├── testing.md
+    └── checks.json
+```
+
+Manual installation is an advanced/fallback path. Prefer `aidlc init` because it inspects the target repository, preserves existing context, guides missing decisions, configures verification, repairs partial setup, and validates the result.
 
 ---
 

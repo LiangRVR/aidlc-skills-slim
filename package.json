@@ -1,0 +1,22 @@
+{
+  "name": "aidlc-skills-slim",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Runtime-agnostic AI-DLC workflow Skill with deterministic lifecycle, freshness, evidence, and guided project bootstrap.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "aidlc": "bin/aidlc.mjs"
+  },
+  "files": [
+    "bin/",
+    ".agents/skills/aidlc-workflows/"
+  ],
+  "scripts": {
+    "aidlc": "node bin/aidlc.mjs",
+    "test:bootstrap": "node --test .agents/skills/aidlc-workflows/bootstrap/tests/init.test.mjs .agents/skills/aidlc-workflows/bootstrap/tests/cli.test.mjs .agents/skills/aidlc-workflows/bootstrap/tests/package-smoke.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

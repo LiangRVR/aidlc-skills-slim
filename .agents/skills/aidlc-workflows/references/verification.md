@@ -45,7 +45,7 @@ A receipt records:
 - source digest before and after the command;
 - PASS, FAIL, or STALE.
 
-Commands execute with `shell:false`. `checks.json` is trusted project configuration and must not be populated from untrusted input.
+Checks execute directly with `shell:false` by default. On Windows only, known package-manager `.cmd` shims (`npm`/`npx`/`pnpm`/`yarn` families) use a narrowly scoped command-shell adapter because Windows cannot execute those shim files directly. That adapter accepts only a strict shell-safe token set; arguments with spaces or command-shell metacharacters are rejected and complex logic must live behind a package script. Arbitrary project commands are never routed through this adapter. `checks.json` is trusted project configuration and must not be populated from untrusted input.
 
 If a check changes source, its receipt is `STALE` even when exit code is zero. A configured `required:true` check must have a PASS receipt for the exact current source and current command definition before `verification_complete` succeeds.
 
