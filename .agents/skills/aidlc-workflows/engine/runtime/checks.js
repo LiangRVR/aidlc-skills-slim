@@ -11,7 +11,7 @@ const MAX_CHECK_OUTPUT = 8 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 30 * 60 * 1000;
 const WINDOWS_PACKAGE_SHIMS = new Set(['npm', 'npm.cmd', 'npx', 'npx.cmd', 'pnpm', 'pnpm.cmd', 'pnpx', 'pnpx.cmd', 'yarn', 'yarn.cmd', 'yarnpkg', 'yarnpkg.cmd']);
-const WINDOWS_CMD_UNSAFE = /[\r\n"&|<>^%!]/;
+const WINDOWS_CMD_UNSAFE = /[\r\n"&|<>^%!()]/;
 function isObject(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -65,13 +65,12 @@ function commonSpawnOptions(cwd, definition) {
     return {
         cwd,
         encoding: 'utf8',
-        shell: false,
         timeout: definition.timeout_ms ?? DEFAULT_TIMEOUT_MS,
         maxBuffer: MAX_CHECK_OUTPUT,
         env: process.env,
     };
 }
-function quoteWindowsPackageArg(value) {
+function quoteWindowsPackageToken(value) {
     if (WINDOWS_CMD_UNSAFE.test(value))
         throw new EngineError('INVALID_CHECK_CONFIG', 'Windows package-manager check arguments may not contain shell metacharacters');
     return `"${value}"`;
@@ -80,11 +79,16 @@ function spawnCheck(definition, cwd) {
     const [program, ...args] = definition.command;
     if (process.platform === 'win32' && WINDOWS_PACKAGE_SHIMS.has(program.toLowerCase())) {
         const shim = program.toLowerCase().endsWith('.cmd') ? program : `${program}.cmd`;
-        const commandLine = [shim, ...args.map(quoteWindowsPackageArg)].join(' ');
-        const cmdPayload = `"${commandLine}"`;
-        return spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', cmdPayload], commonSpawnOptions(cwd, definition));
+        const commandLine = [shim, ...args].map(quoteWindowsPackageToken).join(' ');
+        return spawnSync(commandLine, [], {
+            ...commonSpawnOptions(cwd, definition),
+            shell: process.env.ComSpec ?? true,
+        });
     }
-    return spawnSync(program, args, commonSpawnOptions(cwd, definition));
+    return spawnSync(program, args, {
+        ...commonSpawnOptions(cwd, definition),
+        shell: false,
+    });
 }
 export function executeCheck(root, name, config) {
     const definition = config.checks[name];
