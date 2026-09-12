@@ -1,5 +1,5 @@
 import { existsSync, statSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { EngineError } from './errors.js';
 import { hashArtifact, sha256Text } from './hashing.js';
@@ -12,6 +12,8 @@ const MAX_CHECK_CONFIG_BYTES = 512 * 1024;
 const MAX_CHECK_OUTPUT = 8 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 30 * 60 * 1000;
+const WINDOWS_PACKAGE_SHIMS = new Set(['npm', 'npm.cmd', 'npx', 'npx.cmd', 'pnpm', 'pnpm.cmd', 'pnpx', 'pnpx.cmd', 'yarn', 'yarn.cmd', 'yarnpkg', 'yarnpkg.cmd']);
+const WINDOWS_CMD_UNSAFE = /[\r\n"&|<>^%!]/;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -58,6 +60,34 @@ function checkCwd(root: string, definition: CheckDefinition): { absolute: string
   return { absolute, relative };
 }
 
+function commonSpawnOptions(cwd: string, definition: CheckDefinition) {
+  return {
+    cwd,
+    encoding: 'utf8' as const,
+    shell: false as const,
+    timeout: definition.timeout_ms ?? DEFAULT_TIMEOUT_MS,
+    maxBuffer: MAX_CHECK_OUTPUT,
+    env: process.env,
+  };
+}
+
+function quoteWindowsPackageArg(value: string): string {
+  if (WINDOWS_CMD_UNSAFE.test(value)) {
+    throw new EngineError('INVALID_CHECK_CONFIG', 'Windows package-manager check arguments may not contain shell metacharacters');
+  }
+  return `"${value}"`;
+}
+
+function spawnCheck(definition: CheckDefinition, cwd: string): SpawnSyncReturns<string> {
+  const [program, ...args] = definition.command;
+  if (process.platform === 'win32' && WINDOWS_PACKAGE_SHIMS.has(program.toLowerCase())) {
+    const shim = program.toLowerCase().endsWith('.cmd') ? program : `${program}.cmd`;
+    const commandLine = [shim, ...args.map(quoteWindowsPackageArg)].join(' ');
+    return spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', commandLine], commonSpawnOptions(cwd, definition));
+  }
+  return spawnSync(program, args, commonSpawnOptions(cwd, definition));
+}
+
 export function executeCheck(root: string, name: string, config: ChecksConfig): CheckReceipt {
   const definition = config.checks[name];
   if (!definition) throw new EngineError('UNKNOWN_CHECK', `Unknown verification check: ${name}`);
@@ -65,14 +95,7 @@ export function executeCheck(root: string, name: string, config: ChecksConfig): 
   const before = captureSourceSnapshot(root);
   const started = Date.now();
   const startedAt = new Date(started).toISOString();
-  const result = spawnSync(definition.command[0], definition.command.slice(1), {
-    cwd: cwd.absolute,
-    encoding: 'utf8',
-    shell: false,
-    timeout: definition.timeout_ms ?? DEFAULT_TIMEOUT_MS,
-    maxBuffer: MAX_CHECK_OUTPUT,
-    env: process.env,
-  });
+  const result = spawnCheck(definition, cwd.absolute);
   const duration = Date.now() - started;
   const after = captureSourceSnapshot(root);
   const stdout = result.stdout ?? '';
