@@ -20,6 +20,11 @@ async function repo() {
   return root;
 }
 
+async function writeSkillVersion(skill, version = '0.2.1') {
+  await mkdir(join(skill, 'bootstrap'), { recursive: true });
+  await writeFile(join(skill, 'bootstrap', 'installation.json'), JSON.stringify({ schema_version: 1, skill_version: version }, null, 2) + '\n');
+}
+
 test('greenfield bootstrap creates baseline without inventing a stack', async () => {
   const root = await repo();
   const result = await initProject({ root, yes: true });
@@ -88,16 +93,55 @@ test('bootstrap is idempotent and preserves existing project context', async () 
   assert.equal(await readFile(join(root, 'AGENTS.md'), 'utf8'), agents);
 });
 
-test('partial Skill installation is repaired without overwriting existing files', async () => {
+test('same-version partial Skill installation is repaired without overwriting existing files', async () => {
   const root = await repo();
   const skill = join(root, '.agents', 'skills', 'aidlc-workflows');
   await mkdir(skill, { recursive: true });
+  await writeSkillVersion(skill);
   const sentinel = '# Custom local SKILL marker\n';
   await writeFile(join(skill, 'SKILL.md'), sentinel);
   await initProject({ root, yes: true });
   assert.equal(await readFile(join(skill, 'SKILL.md'), 'utf8'), sentinel);
   assert.ok(existsSync(join(skill, 'engine', 'bin', 'aidlc-engine.mjs')));
   assert.ok(existsSync(join(skill, 'bin', 'aidlc.mjs')));
+});
+
+test('unknown-version Skill installation is refused instead of mixed', async () => {
+  const root = await repo();
+  const skill = join(root, '.agents', 'skills', 'aidlc-workflows');
+  await mkdir(skill, { recursive: true });
+  const sentinel = '# Legacy local SKILL\n';
+  await writeFile(join(skill, 'SKILL.md'), sentinel);
+  await assert.rejects(() => initProject({ root, yes: true }), /no version marker|mixed-version/i);
+  assert.equal(await readFile(join(skill, 'SKILL.md'), 'utf8'), sentinel);
+  assert.equal(existsSync(join(skill, 'engine')), false);
+});
+
+test('different-version Skill installation is refused instead of mixed', async () => {
+  const root = await repo();
+  const skill = join(root, '.agents', 'skills', 'aidlc-workflows');
+  await mkdir(skill, { recursive: true });
+  await writeSkillVersion(skill, '0.1.0');
+  await writeFile(join(skill, 'SKILL.md'), '# Old Skill\n');
+  await assert.rejects(() => initProject({ root, yes: true }), /version mismatch/i);
+  assert.equal(existsSync(join(skill, 'engine')), false);
+});
+
+test('existing generated TBD brief can be completed from repository context', async () => {
+  const root = await repo();
+  await mkdir(join(root, 'aidlc-docs', 'project'), { recursive: true });
+  await writeFile(join(root, 'README.md'), '# Context App\n\nManages fellowship application workflows for staff.\n');
+  await writeFile(join(root, 'aidlc-docs', 'project', 'brief.md'), '# Project Brief\n\n## Purpose\nTBD\n\n## Primary users\nStaff\n');
+  await initProject({ root, yes: true });
+  const brief = await readFile(join(root, 'aidlc-docs', 'project', 'brief.md'), 'utf8');
+  assert.match(brief, /Manages fellowship application workflows for staff/);
+  assert.doesNotMatch(brief, /## Purpose\nTBD/);
+});
+
+test('oversized bootstrap inspection input is rejected before read', async () => {
+  const root = await repo();
+  await writeFile(join(root, 'README.md'), `# Huge\n\n${'x'.repeat(2 * 1024 * 1024 + 1)}`);
+  await assert.rejects(() => initProject({ root, yes: true }), /too large/i);
 });
 
 test('bootstrap resolves a nested working directory to the Git project root', async () => {
