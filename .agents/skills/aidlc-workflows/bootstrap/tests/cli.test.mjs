@@ -49,3 +49,24 @@ test('aidlc init refuses a managed path symlink that escapes the project', async
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /resolves outside the project/);
 });
+
+test('aidlc init refuses a project inspection symlink that escapes the project', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'aidlc-cli-inspect-safe-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aidlc-cli-inspect-outside-'));
+  git(root, ['init']);
+  const externalPackage = join(outside, 'package.json');
+  await writeFile(externalPackage, JSON.stringify({ name: 'outside-project' }));
+  try {
+    await symlink(externalPackage, join(root, 'package.json'), 'file');
+  } catch (error) {
+    if (error?.code === 'EPERM' || error?.code === 'EACCES') {
+      t.skip('file symlink creation is not permitted on this runner');
+      return;
+    }
+    throw error;
+  }
+
+  const result = spawnSync(process.execPath, [CLI, 'init', '--root', root, '--yes'], { encoding: 'utf8', shell: false });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /inspect a path that resolves outside the project/);
+});
