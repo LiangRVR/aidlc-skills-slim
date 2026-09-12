@@ -7,10 +7,12 @@ import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { AidlcEngine } from '../engine/runtime/engine.js';
 import { readChecksConfig } from '../engine/runtime/checks.js';
+import { assertBootstrapPathsContained, readContainedProjectText } from './safety.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SKILL_ROOT = resolve(HERE, '..');
 const TEMPLATE_ROOT = join(SKILL_ROOT, 'templates');
+const INSTALLATION_MANIFEST = join(HERE, 'installation.json');
 const DOC_ONLY_NAMES = new Set(['README.md', 'Readme.md', 'readme.md', 'LICENSE', 'LICENSE.md', '.gitignore', '.gitattributes']);
 const IGNORED_NAMES = new Set(['.git', '.agents', 'aidlc-docs', 'node_modules', '.venv', 'venv', 'dist', 'build']);
 
@@ -33,12 +35,14 @@ async function assertDirectory(path) {
   if (!info.isDirectory()) throw new Error(`Project root is not a directory: ${path}`);
 }
 
-async function readJson(path) {
-  try { return JSON.parse(await readFile(path, 'utf8')); } catch { return null; }
+async function readProjectJson(root, relativePath) {
+  const text = await readContainedProjectText(root, relativePath);
+  if (text === null) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
-async function readText(path) {
-  try { return await readFile(path, 'utf8'); } catch { return null; }
+async function readProjectText(root, relativePath) {
+  return readContainedProjectText(root, relativePath);
 }
 
 async function projectEntries(root) {
@@ -68,7 +72,7 @@ function validPackageScript(name, value) {
 }
 
 async function detectProject(root) {
-  const pkg = await readJson(join(root, 'package.json'));
+  const pkg = await readProjectJson(root, 'package.json');
   const deps = depsOf(pkg);
   const exists = (name) => existsSync(join(root, name));
   const stacks = [];
@@ -97,7 +101,7 @@ async function detectProject(root) {
   }
 
   if (python) {
-    const pythonConfig = `${await readText(join(root, 'pyproject.toml')) ?? ''}\n${await readText(join(root, 'requirements.txt')) ?? ''}`;
+    const pythonConfig = `${await readProjectText(root, 'pyproject.toml') ?? ''}\n${await readProjectText(root, 'requirements.txt') ?? ''}`;
     if (/\bpytest\b/i.test(pythonConfig)) addCheck(checkCandidates, { name: 'pytest', command: ['python', '-m', 'pytest'], required: true, timeout_ms: 120000 });
   }
   if (exists('Cargo.toml')) {
@@ -109,7 +113,7 @@ async function detectProject(root) {
   let readmeTitle = null;
   let readmeSummary = null;
   for (const candidate of ['README.md', 'Readme.md', 'readme.md']) {
-    const text = await readText(join(root, candidate));
+    const text = await readProjectText(root, candidate);
     if (!text) continue;
     const heading = text.match(/^#\s+(.+)$/m);
     if (heading) readmeTitle = heading[1].trim();
@@ -186,6 +190,57 @@ async function writeIfMissing(path, content) {
   return true;
 }
 
+function sectionValue(text, heading) {
+  if (!text) return null;
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = text.match(new RegExp(`^## ${escaped}\\s*\\n([^\\n]*)`, 'mi'));
+  return match?.[1]?.trim() ?? null;
+}
+
+function needsSectionValue(text, heading) {
+  const value = sectionValue(text, heading);
+  return value === null || value === '' || /^TBD\b/i.test(value);
+}
+
+function fillSectionValue(text, heading, value) {
+  if (!value || !needsSectionValue(text, heading)) return text;
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(new RegExp(`(^## ${escaped}\\s*\\n)[^\\n]*`, 'mi'), `$1${value}`);
+}
+
+function fillStackPlaceholders(text, stacks) {
+  if (!text || !stacks.length) return text;
+  let next = text;
+  next = next.replace(/(^## Status\s*\n)Undecided[^\n]*/mi, '$1Observed/confirmed from setup answers.');
+  next = next.replace(/(^## Detected technologies\s*\n)- Undecided\s*$/mi, `$1${stacks.map((item) => `- ${item}`).join('\n')}`);
+  return next;
+}
+
+async function skillVersion(path) {
+  const parsed = JSON.parse(await readFile(path, 'utf8'));
+  if (parsed?.schema_version !== 1 || typeof parsed.skill_version !== 'string' || !parsed.skill_version) {
+    throw new Error(`Invalid AI-DLC installation manifest: ${path}`);
+  }
+  return parsed.skill_version;
+}
+
+async function assertCompatibleInstalledSkill(root, installedSkill) {
+  if (!existsSync(installedSkill)) return;
+  const entries = await readdir(installedSkill);
+  if (!entries.length) return;
+  const relativeManifest = '.agents/skills/aidlc-workflows/bootstrap/installation.json';
+  const targetRaw = await readContainedProjectText(root, relativeManifest, 64 * 1024);
+  if (targetRaw === null) {
+    throw new Error('Existing AI-DLC Skill installation has no version marker. Refusing mixed-version repair; back up/remove .agents/skills/aidlc-workflows and rerun aidlc init.');
+  }
+  let target;
+  try { target = JSON.parse(targetRaw); } catch { throw new Error('Existing AI-DLC Skill installation has an invalid version marker. Refusing mixed-version repair.'); }
+  const sourceVersion = await skillVersion(INSTALLATION_MANIFEST);
+  if (target?.schema_version !== 1 || target.skill_version !== sourceVersion) {
+    throw new Error(`AI-DLC Skill version mismatch: project has ${target?.skill_version ?? 'unknown'}, initializer is ${sourceVersion}. Refusing mixed-version repair; back up/remove the existing Skill and rerun aidlc init.`);
+  }
+}
+
 function briefContent({ project, purpose, users, production, sensitive }) {
   return `# Project Brief\n\n## Purpose\n${purpose || 'TBD — clarify the product purpose before consequential implementation decisions.'}\n\n## Primary users\n${users || 'TBD'}\n\n## Scope\nMaintain this section with durable product scope and permanent constraints only.\n\n## Operational context\n- Project: ${project.name}\n- Lifecycle state: ${production ? 'Already used in production or production-like operation' : 'Not confirmed as production'}\n- Sensitive/personal data: ${sensitive ? 'Yes or possible — treat privacy/security as consequential' : 'Not currently identified'}\n\n## Non-goals\nRecord durable non-goals when they become known.\n`;
 }
@@ -233,6 +288,7 @@ export async function initProject({ root: requestedRoot, yes = false } = {}) {
       if (result.status !== 0) throw new Error(`git init failed: ${result.stderr.trim()}`);
     }
 
+    await assertBootstrapPathsContained(root);
     const project = await detectProject(root);
     output.write(`\nAI-DLC Slim setup\nProject root: ${root}\nProject type: ${project.kind}\n`);
     if (project.stacks.length) output.write(`Detected stack: ${project.stacks.join(', ')}\n`);
@@ -240,6 +296,7 @@ export async function initProject({ root: requestedRoot, yes = false } = {}) {
 
     const installedSkill = join(root, '.agents', 'skills', 'aidlc-workflows');
     if (resolve(installedSkill) !== resolve(SKILL_ROOT)) {
+      await assertCompatibleInstalledSkill(root, installedSkill);
       const copied = await copyMissingTree(SKILL_ROOT, installedSkill);
       if (copied) created.push(`.agents/skills/aidlc-workflows (${copied} missing files installed)`);
       else preserved.push('.agents/skills/aidlc-workflows');
@@ -257,21 +314,30 @@ export async function initProject({ root: requestedRoot, yes = false } = {}) {
     const stackPath = join(baselineDir, 'tech-stack.md');
     const testingPath = join(baselineDir, 'testing.md');
     const checksPath = join(baselineDir, 'checks.json');
+    const existingBrief = await readProjectText(root, 'aidlc-docs/project/brief.md');
+    const existingStack = await readProjectText(root, 'aidlc-docs/project/tech-stack.md');
 
     let purpose = '';
     let users = '';
     let production = false;
     let sensitive = false;
     let stackDecision = project.stacks.length > 0;
+    let completedBrief = existingBrief;
+    let completedStack = existingStack;
 
-    if (!existsSync(briefPath)) {
-      purpose = await prompts.text('What is this product/project primarily for?', project.description || '');
-      users = await prompts.text('Who are the primary users or operators?', 'TBD');
-      production = await prompts.yesNo('Is this already used in production or by real users?', false);
-      sensitive = await prompts.yesNo('Does it handle sensitive/personal data, auth, payments, secrets, or other security-critical information?', false);
+    if (!existingBrief || needsSectionValue(existingBrief, 'Purpose') || needsSectionValue(existingBrief, 'Primary users')) {
+      if (!existingBrief || needsSectionValue(existingBrief, 'Purpose')) purpose = await prompts.text('What is this product/project primarily for?', project.description || '');
+      if (!existingBrief || needsSectionValue(existingBrief, 'Primary users')) users = await prompts.text('Who are the primary users or operators?', 'TBD');
+      if (!existingBrief) {
+        production = await prompts.yesNo('Is this already used in production or by real users?', false);
+        sensitive = await prompts.yesNo('Does it handle sensitive/personal data, auth, payments, secrets, or other security-critical information?', false);
+      } else {
+        completedBrief = fillSectionValue(completedBrief, 'Purpose', purpose);
+        completedBrief = fillSectionValue(completedBrief, 'Primary users', users);
+      }
     }
 
-    if (!existsSync(stackPath)) {
+    if (!existingStack) {
       if (project.kind === 'greenfield' && !project.stacks.length) {
         stackDecision = await prompts.yesNo('Has the technology stack already been decided?', false);
         if (stackDecision) {
@@ -285,6 +351,16 @@ export async function initProject({ root: requestedRoot, yes = false } = {}) {
           project.stacks = correction.split(',').map((item) => item.trim()).filter(Boolean);
         }
       }
+    } else if (/^- Undecided\s*$/mi.test(existingStack) && !yes) {
+      stackDecision = await prompts.yesNo('The existing project baseline still marks the technology stack as undecided. Has it now been decided?', false);
+      if (stackDecision) {
+        const stack = await prompts.text('Briefly describe the decided stack', project.stacks.join(', '));
+        const stacks = stack.split(',').map((item) => item.trim()).filter(Boolean);
+        if (stacks.length) {
+          project.stacks = stacks;
+          completedStack = fillStackPlaceholders(existingStack, stacks);
+        }
+      }
     }
 
     const selectedChecks = [];
@@ -296,16 +372,19 @@ export async function initProject({ root: requestedRoot, yes = false } = {}) {
     }
 
     const files = [
-      [briefPath, briefContent({ project, purpose, users, production, sensitive }), 'aidlc-docs/project/brief.md'],
-      [architecturePath, architectureContent(project), 'aidlc-docs/project/architecture.md'],
-      [stackPath, techStackContent(project, stackDecision), 'aidlc-docs/project/tech-stack.md'],
-      [testingPath, testingContent(selectedChecks), 'aidlc-docs/project/testing.md'],
-      [checksPath, checksConfig(selectedChecks), 'aidlc-docs/project/checks.json'],
+      [briefPath, briefContent({ project, purpose, users, production, sensitive }), 'aidlc-docs/project/brief.md', existingBrief, completedBrief],
+      [architecturePath, architectureContent(project), 'aidlc-docs/project/architecture.md', null, null],
+      [stackPath, techStackContent(project, stackDecision), 'aidlc-docs/project/tech-stack.md', existingStack, completedStack],
+      [testingPath, testingContent(selectedChecks), 'aidlc-docs/project/testing.md', null, null],
+      [checksPath, checksConfig(selectedChecks), 'aidlc-docs/project/checks.json', null, null],
     ];
 
-    for (const [path, content, label] of files) {
+    for (const [path, content, label, existing, completed] of files) {
       if (await writeIfMissing(path, content)) created.push(label);
-      else preserved.push(label);
+      else if (existing !== null && completed !== null && completed !== existing) {
+        await writeFile(path, completed, 'utf8');
+        created.push(`${label} (completed placeholders)`);
+      } else preserved.push(label);
     }
 
     readChecksConfig(root);
