@@ -10,6 +10,8 @@ const MAX_CHECK_CONFIG_BYTES = 512 * 1024;
 const MAX_CHECK_OUTPUT = 8 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 30 * 60 * 1000;
+const WINDOWS_PACKAGE_SHIMS = new Set(['npm', 'npm.cmd', 'npx', 'npx.cmd', 'pnpm', 'pnpm.cmd', 'pnpx', 'pnpx.cmd', 'yarn', 'yarn.cmd', 'yarnpkg', 'yarnpkg.cmd']);
+const WINDOWS_PACKAGE_TOKEN = /^[A-Za-z0-9_./:@=+,\-\\]+$/;
 function isObject(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -59,6 +61,35 @@ function checkCwd(root, definition) {
         throw new EngineError('INVALID_CHECK_CONFIG', `Check cwd is not a directory: ${relative}`);
     return { absolute, relative };
 }
+function commonSpawnOptions(cwd, definition) {
+    return {
+        cwd,
+        encoding: 'utf8',
+        timeout: definition.timeout_ms ?? DEFAULT_TIMEOUT_MS,
+        maxBuffer: MAX_CHECK_OUTPUT,
+        env: process.env,
+    };
+}
+function assertWindowsPackageToken(value) {
+    if (!WINDOWS_PACKAGE_TOKEN.test(value))
+        throw new EngineError('INVALID_CHECK_CONFIG', 'Windows package-manager check arguments must use shell-safe tokens without spaces or metacharacters; move complex arguments into a package script');
+    return value;
+}
+function spawnCheck(definition, cwd) {
+    const [program, ...args] = definition.command;
+    if (process.platform === 'win32' && WINDOWS_PACKAGE_SHIMS.has(program.toLowerCase())) {
+        const shim = program.toLowerCase().endsWith('.cmd') ? program : `${program}.cmd`;
+        const commandLine = [shim, ...args].map(assertWindowsPackageToken).join(' ');
+        return spawnSync(commandLine, {
+            ...commonSpawnOptions(cwd, definition),
+            shell: process.env.ComSpec ?? true,
+        });
+    }
+    return spawnSync(program, args, {
+        ...commonSpawnOptions(cwd, definition),
+        shell: false,
+    });
+}
 export function executeCheck(root, name, config) {
     const definition = config.checks[name];
     if (!definition)
@@ -67,14 +98,7 @@ export function executeCheck(root, name, config) {
     const before = captureSourceSnapshot(root);
     const started = Date.now();
     const startedAt = new Date(started).toISOString();
-    const result = spawnSync(definition.command[0], definition.command.slice(1), {
-        cwd: cwd.absolute,
-        encoding: 'utf8',
-        shell: false,
-        timeout: definition.timeout_ms ?? DEFAULT_TIMEOUT_MS,
-        maxBuffer: MAX_CHECK_OUTPUT,
-        env: process.env,
-    });
+    const result = spawnCheck(definition, cwd.absolute);
     const duration = Date.now() - started;
     const after = captureSourceSnapshot(root);
     const stdout = result.stdout ?? '';

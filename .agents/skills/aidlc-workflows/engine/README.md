@@ -92,7 +92,9 @@ Run a check only during active Verification:
 aidlc-engine check unit
 ```
 
-Commands are arrays and execute with `shell:false`. Receipts record the exact command/cwd, start time, duration, exit code, timeout status, stdout/stderr hashes and byte counts, plus source digests before and after execution. Full command output is not persisted in evidence.json. If a check changes source, the receipt is `STALE`, not PASS.
+Commands are arrays and execute directly with `shell:false` by default. On Windows only, known package-manager `.cmd` shims (`npm`/`npx`/`pnpm`/`yarn` families) use a narrowly scoped shell adapter after every token passes a strict allowlist. Tokens with spaces or shell metacharacters are rejected; complex package-manager behavior should be placed behind a package script. Arbitrary project commands are never routed through that adapter.
+
+Receipts record the exact configured command/cwd, start time, duration, exit code, timeout status, stdout/stderr hashes and byte counts, plus source digests before and after execution. Full command output is not persisted in evidence.json. If a check changes source, the receipt is `STALE`, not PASS.
 
 A required check must have a current PASS receipt for the exact source and current command definition before `verification_complete` succeeds. The verification receipt is also bound to the hash of `checks.json`, so changing verification configuration after completion makes Verification stale.
 
@@ -114,4 +116,4 @@ npm test
 npm run test-runtime
 ```
 
-CI runs the full suite against compiled TypeScript and the committed zero-setup runtime on Linux, macOS, and Windows, then smoke-tests the CLI. `sync-runtime` regenerates committed JavaScript from `src/`.
+CI runs the full suite against compiled TypeScript and the committed zero-setup runtime on Linux, macOS, and Windows across the supported Node compatibility matrix, then smoke-tests both CLIs and the packed guided-bootstrap flow. `sync-runtime` regenerates committed JavaScript from `src/`.
