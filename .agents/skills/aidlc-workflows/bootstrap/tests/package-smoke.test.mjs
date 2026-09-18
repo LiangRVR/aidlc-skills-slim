@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +47,9 @@ test('packed npm artifact exposes aidlc and installs the complete Skill', async 
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'bootstrap', 'installation.json')));
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'engine', 'bin', 'aidlc-engine.mjs')));
     assert.ok(existsSync(join(root, 'aidlc-docs', 'project', 'brief.md')));
+    const installedSkill = await readFile(join(root, '.agents', 'skills', 'aidlc-workflows', 'SKILL.md'), 'utf8');
+    assert.match(installedSkill, /## Autonomous continuation/);
+    assert.match(installedSkill, /Entering Implementation after `continue` is not a stopping condition/);
   } finally {
     await rm(tarball, { force: true });
   }
