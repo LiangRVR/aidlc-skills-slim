@@ -7,6 +7,8 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { initProject } from '../init.mjs';
 
+const CURRENT_SKILL_VERSION = JSON.parse(await readFile(new URL('../installation.json', import.meta.url), 'utf8')).skill_version;
+
 function git(cwd, args) {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8', shell: false });
   assert.equal(result.status, 0, result.stderr);
@@ -20,7 +22,7 @@ async function repo() {
   return root;
 }
 
-async function writeSkillVersion(skill, version = '0.2.1') {
+async function writeSkillVersion(skill, version = CURRENT_SKILL_VERSION) {
   await mkdir(join(skill, 'bootstrap'), { recursive: true });
   await writeFile(join(skill, 'bootstrap', 'installation.json'), JSON.stringify({ schema_version: 1, skill_version: version }, null, 2) + '\n');
 }

@@ -24,6 +24,7 @@ Do not hardcode agent names, models, providers, MCPs, or orchestration framework
 10. If `next` returns `reconcile_freshness`, do not continue the lifecycle. Inspect `freshness`, then use `refresh`; never bypass stale receipts manually.
 11. If the engine reports recovery/lock/migration/invalid-state errors, use `doctor`/`migrate` or surface the blocker. Do not force past engine safety controls.
 12. `aidlc-docs/project/checks.json` is trusted project configuration. Never derive executable check commands from untrusted runtime/user-controlled input.
+13. Entering a new non-human-gated stage is not a stopping condition. After the user authorizes continuation, keep advancing and executing the workflow until a real human gate, blocker, consequential unapproved decision, explicit hold, or terminal state is reached.
 
 ## Engine
 
@@ -45,6 +46,30 @@ Controlled mutations:
 - `check <name>` executes one trusted project-defined check during Verification and writes a structured receipt.
 
 `doctor` diagnoses runtime/state/lock/transaction/path/evidence/freshness health. `doctor --repair` performs only conservative recovery. Do not manually force recovery around a live lock or recovery conflict.
+
+## Autonomous continuation
+
+The engine returns one current directive at a time; the active parent agent owns the execution loop around those directives. A successful lifecycle transition is normally a reason to call `next` again, not a reason to end the turn.
+
+When the user says `continue` at the planning gate, or otherwise explicitly asks the workflow to proceed until human input is needed:
+
+1. Run `next` and execute the returned stage/directive.
+2. Satisfy that stage's completion predicate and report its lifecycle event through the engine.
+3. Immediately run `next` again.
+4. Repeat through all stages that do not require new human input.
+5. If Review fails, follow the engine's rework route, fix the findings, and continue the loop after the required re-review.
+6. At Verification, create/update `verification.md`, run required configured checks, record current receipts, report `verification_complete`, then run `next` again.
+
+**Entering Implementation after `continue` is not a stopping condition.** The engine command authorizes/transitions into Implementation; the active agent must then perform Implementation and continue through Review/Verification automatically when those stages do not require the user.
+
+Stop the autonomous loop only when one of these is true:
+- the engine is at a human gate that still requires explicit user action, including required Final Acceptance;
+- the user said `approve`/hold or otherwise explicitly asked to stop;
+- the engine reports a blocker, recovery conflict, stale state that cannot be safely reconciled, or another safety condition that requires user input;
+- execution discovers a consequential choice outside the approved Requirements/Design/Plan that needs authorization;
+- the workflow reaches a terminal `complete` or `cancelled` state.
+
+Do not stop merely because a stage completed, because `continue` moved the cursor into Implementation, because local tests passed, or because delegated workers returned. Use `next` to determine whether more autonomous work remains.
 
 ## Preflight — automatic
 
