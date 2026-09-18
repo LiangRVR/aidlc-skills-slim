@@ -8,6 +8,32 @@ AI-DLC Slim lifecycle remains Requirements → optional Design → Plan → Impl
 
 `freshness` and `next` are read-only. `refresh` is a controlled mutation that is legal only when stale dependencies exist and the workflow is not blocked/cancelled.
 
+## Continuation / turn-boundary invariant
+
+Lifecycle state transitions and agent turn boundaries are separate concepts. The engine advances one state/directive at a time; the active parent agent is responsible for repeatedly executing the current directive and asking `next` what follows.
+
+After explicit user authorization to continue from a planning gate, the expected execution loop is:
+
+```text
+next
+  → execute current stage
+  → satisfy completion predicate
+  → report lifecycle event
+  → next
+  → repeat
+```
+
+Entering Implementation is **not** a human gate and is not a stopping condition. The agent should continue through Implementation, required Review/rework, and Verification without asking the user to say `continue` after each internal stage.
+
+The loop stops only for:
+- a human gate that still requires explicit action, especially required Final Acceptance;
+- an explicit user hold such as `approve` without `continue`;
+- a blocker/recovery conflict/safety condition requiring user input;
+- a consequential choice outside the approved scope that requires authorization;
+- a terminal complete/cancelled state.
+
+A successful local test run, worker completion report, stage transition, or arrival at Implementation does not itself justify ending the workflow turn.
+
 ## Freshness dependency order
 
 ```text
