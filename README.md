@@ -165,6 +165,26 @@ Implement this change using AI-DLC Slim. Continue through the workflow until you
 
 The agent should handle preflight, engine commands, workflow artifacts, risk routing, state transitions, verification receipts, freshness checks, and delegated work itself.
 
+When you tell the agent to continue through the workflow until it needs you, that authorization applies to the **agent execution loop**, not just the single `aidlc-engine continue` transition. After entering Implementation, the agent should keep calling `next`, completing each non-human-gated stage, reporting its result, and continuing through Review/rework and Verification automatically.
+
+```text
+You: "continue"
+       ↓
+Planning approval recorded
+       ↓
+Implementation
+       ↓
+Review / rework when required
+       ↓
+Verification
+       ↓
+Final Acceptance
+       ↓
+STOP for your explicit acceptance
+```
+
+Entering Implementation, finishing one stage, or seeing successful local tests is not by itself a reason for the agent to stop. It should stop only for a real human gate, a blocker/safety issue, a consequential unapproved decision, an explicit hold, or a terminal state.
+
 ### 6. Respond when AI-DLC reaches a gate
 
 The most important user responses are:
