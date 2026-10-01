@@ -14,7 +14,7 @@ Project context is a compact, agent-friendly model of durable project truth. It 
 
 Project-context work is **not** an AI-DLC lifecycle stage.
 
-Run semantic initialization when bootstrap has installed the Skill but durable project context is missing, obviously placeholder-only, or materially incomplete for safe work.
+Run semantic initialization when bootstrap has installed the Skill but durable project context is missing, contains `<!-- AI-DLC-CONTEXT: PENDING -->`, is obviously placeholder-only, or is materially incomplete for safe work.
 
 Run targeted reconciliation:
 
@@ -35,6 +35,9 @@ The active parent agent should:
 5. Ask the user only for material intent or constraints that cannot be safely inferred and would affect consequential future decisions.
 6. Write/refine the durable project documents.
 7. Cross-check the finished context against the repository before considering initialization complete.
+8. Remove the `AI-DLC-CONTEXT: PENDING` marker from each template that has actually been semantically reconciled. Do not remove it merely because the file exists.
+
+Existing meaningful project-owned context that does not carry the pending marker should be preserved and reconciled surgically rather than replaced with templates.
 
 ### Brownfield projects
 
