@@ -1,6 +1,6 @@
 ---
 name: aidlc-workflows
-description: Slim, runtime-agnostic AI-DLC workflow for structured software changes. Use for requirements, design, implementation planning, coding, review, verification, freshness, and durable project context. The workflow governs lifecycle and evidence but never overrides the active agent's execution, delegation, model, or tool strategy.
+description: Slim, runtime-agnostic AI-DLC workflow for agent-driven project initialization, durable context, requirements, design, implementation planning, coding, review, verification, and freshness. The workflow governs lifecycle and evidence but never overrides the active agent's execution, delegation, model, or tool strategy.
 license: MIT
 ---
 
@@ -25,6 +25,8 @@ Do not hardcode agent names, models, providers, MCPs, or orchestration framework
 11. If the engine reports recovery/lock/migration/invalid-state errors, use `doctor`/`migrate` or surface the blocker. Do not force past engine safety controls.
 12. `aidlc-docs/project/checks.json` is trusted project configuration. Never derive executable check commands from untrusted runtime/user-controlled input.
 13. Entering a new non-human-gated stage is not a stopping condition. After the user authorizes continuation, keep advancing and executing the workflow until a real human gate, blocker, consequential unapproved decision, explicit hold, or terminal state is reached.
+14. The active parent agent owns semantic project-context initialization and maintenance. Source/configuration are authoritative for observable implementation facts; the user remains authoritative for product intent, durable business constraints, and consequential decisions.
+15. Reconcile materially changed durable project context before reporting Implementation complete so Review/Verification use the project model future work will consume.
 
 ## Engine
 
@@ -46,6 +48,25 @@ Controlled mutations:
 - `check <name>` executes one trusted project-defined check during Verification and writes a structured receipt.
 
 `doctor` diagnoses runtime/state/lock/transaction/path/evidence/freshness health. `doctor --repair` performs only conservative recovery. Do not manually force recovery around a live lock or recovery conflict.
+
+## Project bootstrap and agent-driven initialization
+
+`aidlc init` is the **mechanical project bootstrap**. It can initialize Git, install/repair the repository-local Skill, create missing project-context templates, detect repository-defined verification candidates, validate `checks.json`, and run `doctor`.
+
+It does **not** semantically understand the product and must not be treated as the authority for purpose, architecture, stack rationale, security boundaries, or testing strategy.
+
+After bootstrap, the active parent agent owns semantic initialization:
+
+1. Load `references/project-context.md`.
+2. Inspect the repository and existing documentation before asking questions.
+3. Infer repository-supported durable context.
+4. Ask only for material intent/constraints that cannot be safely inferred.
+5. Refine `brief.md`, `architecture.md`, `tech-stack.md`, and `testing.md` into useful project context.
+6. Cross-check the result against the repository.
+
+If durable project context is already meaningful, preserve it and reconcile only stale/materially incomplete facts. Project initialization is **not** a lifecycle stage and does not create, advance, or reset a software change.
+
+For greenfield work, do not invent architecture or technology choices. Keep them explicitly undecided until Requirements/Design has enough information.
 
 ## Autonomous continuation
 
@@ -77,12 +98,12 @@ Do not stop merely because a stage completed, because `continue` moved the curso
 2. Run `doctor`; repair only conditions the engine declares safely repairable.
 3. If state exists, run `status` and `next`; resume it unless terminal.
 4. If `next` requests freshness reconciliation, inspect `freshness` and run `refresh` before other lifecycle work.
-5. Load only relevant durable project documents and inspect source/config needed for the request.
+5. Load relevant durable project documents and inspect source/config needed for the request. If context is missing, placeholder-only, or materially stale, load `references/project-context.md` and initialize/reconcile it before relying on it.
 6. For a new change, classify Low/Standard/High risk and decide the five workflow flags.
 7. Initialize via `init`, preserving the original request. Initialization records the Git source baseline in per-change evidence.
 8. If new pre-Implementation evidence changes routing, use `reclassify`; never edit state directly.
 
-Preflight is not a user-facing stage and should not create ceremony.
+Preflight is not a user-facing stage and should not create ceremony. Do not perform a full context rewrite when a targeted reconciliation is sufficient.
 
 ## Risk profiles
 
@@ -115,7 +136,9 @@ If a planning gate opens:
 
 ## Implementation
 
-Load `references/implementation.md`. Execute the approved/current Plan using the active runtime. Delegation and parallelism are allowed, but the parent agent reconciles work, preserves unrelated changes, keeps Plan checkboxes current, and updates durable project context when project truth changes.
+Load `references/implementation.md`. Execute the approved/current Plan using the active runtime. Delegation and parallelism are allowed, but the parent agent reconciles work, preserves unrelated changes, and keeps Plan checkboxes current.
+
+When the implementation becomes stable, determine whether it materially changed durable project truth. If so, load `references/project-context.md` and reconcile the affected project context **before** reporting `implementation_complete`. Do not update project docs for trivial/local changes that do not affect future understanding, verification, security, deployment, or operation.
 
 Report `implementation_complete` only when the predicate passes. The engine captures the current Git source digest and a manifest of change-related files relative to the initialization baseline, then binds Implementation to that source and the current Plan fingerprint.
 
@@ -130,6 +153,8 @@ A source or Review-artifact change after PASS makes the Review stale.
 ## Verification
 
 Load `references/verification.md`. Map every acceptance criterion to actual evidence. Anything not checked is `NOT VERIFIED`.
+
+Before verification, ensure any material project-context changes from Implementation were reconciled. Verification should not be the first point at which stale architecture/stack/testing context is discovered.
 
 When `aidlc-docs/project/checks.json` defines trusted executable checks, run applicable checks with:
 
@@ -169,6 +194,7 @@ If the user abandons the change, use `cancel --reason <text>`. Cancellation is t
 ## Contracts
 
 Load only when relevant:
+- `references/project-context.md` — agent-owned semantic initialization, document ownership, material-change and reconciliation rules.
 - `references/state.md` — state, revisions, receipts, lock/transaction/recovery.
 - `references/transition-contract.md` — sequencing and freshness/invalidation rules.
 - `references/completion-predicates.md` — mechanically testable completion requirements.
@@ -179,4 +205,8 @@ Load only when relevant:
 
 ## Context discipline
 
-Use `next` to determine the current lifecycle directive, then load only that stage's reference plus relevant project/change artifacts. Source/configuration are authoritative for mechanically discoverable facts; durable docs should store decisions, constraints, commands, and architectural context that are expensive or ambiguous to rediscover.
+Use `next` to determine the current lifecycle directive, then load only that stage's reference plus relevant project/change artifacts.
+
+Source/configuration are authoritative for mechanically observable implementation facts. The user is authoritative for product intent, durable business constraints, and consequential decisions. Durable docs should store decisions, constraints, commands, architectural context, and operational/testing knowledge that are important or expensive to rediscover.
+
+Project context is living agent-maintained context, not a manual user chore. Reconcile it surgically when durable truth changes; do not turn `aidlc-docs/project/` into a duplicate repository wiki.
