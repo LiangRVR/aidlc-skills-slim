@@ -2,22 +2,23 @@
 
 A slim, runtime-agnostic adaptation of AWS AI-DLC v1 for structured AI-assisted software development, backed by a deterministic lifecycle, recovery, freshness, and evidence engine.
 
-AI-DLC Slim separates two responsibilities:
+AI-DLC Slim separates responsibilities deliberately:
 
 ```text
 AI-DLC Slim                     Active coding agent/runtime
-----------------------------    ------------------------------
+----------------------------    --------------------------------
 Owns the development process    Owns execution
 Owns lifecycle state            Chooses tools/models/workers
-Owns gates and freshness        Writes/reviews code
-Owns machine evidence           Makes semantic judgments
+Owns gates and freshness        Understands the project
+Owns machine evidence           Writes/reviews code
+Defines context contracts       Maintains durable project context
 ```
 
-It does **not** hardcode OMO Slim, OpenCode, model names, providers, specialist roles, or delegation strategy. The active agent decides how to do the work; AI-DLC Slim makes sure the required process and evidence are satisfied.
+It does **not** hardcode OMO Slim, OpenCode, Claude Code, Codex, model names, providers, specialist roles, or delegation strategy. The active agent decides how to do the work; AI-DLC Slim makes sure the required process and evidence are satisfied.
 
 ## Quick Start
 
-If you only want to use AI-DLC Slim, start here. You do **not** need to understand the state-machine internals or manually create the AI-DLC directory structure first.
+You do **not** need to understand the state-machine internals or manually maintain a specification system.
 
 ### 1. Requirements
 
@@ -29,36 +30,40 @@ You need:
 
 The included runtime is prebuilt JavaScript. Using AI-DLC Slim does not require compiling the TypeScript engine.
 
-### 2. Run the guided initializer
+### 2. Bootstrap the project
 
-From the root of the project you want AI-DLC Slim to manage, run:
+From the project root:
 
 ```bash
 npm exec --yes --package=github:LiangRVR/aidlc-skills-slim -- aidlc init
 ```
 
-This downloads the current AI-DLC Slim package from the GitHub repository, runs the user-facing initializer, and installs the repository-local Skill into the project.
+For non-interactive/default bootstrap:
 
-If you already have this repository cloned locally, you can run the same initializer directly:
+```bash
+npm exec --yes --package=github:LiangRVR/aidlc-skills-slim -- aidlc init --yes
+```
+
+If this repository is already cloned locally:
 
 ```bash
 node /path/to/aidlc-skills-slim/bin/aidlc.mjs init --root /path/to/your-project
 ```
 
-The normal interactive command is simply:
+`aidlc init` is intentionally a **mechanical bootstrap**, not an AI model hidden inside the CLI. It safely installs/repairs the Skill, creates missing durable-context templates, discovers repository-defined verification candidates, validates `checks.json`, and runs `doctor`.
 
-```bash
-aidlc init
-```
-
-when the `aidlc` package binary is already available in your environment.
-
-`aidlc init` is a **project bootstrap command**. It is intentionally different from `aidlc-engine init`, which initializes one individual software change after the project has already been configured.
+Semantic project understanding belongs to the active coding agent so AI-DLC Slim stays runtime-agnostic.
 
 ```text
 aidlc init
     ↓
-Configure / inspect the PROJECT
+Mechanical project bootstrap
+    ↓
+Active agent inspects repository
+    ↓
+Semantic project context initialization
+    ↓
+Project ready
 
 User requests a change
     ↓
@@ -67,91 +72,44 @@ aidlc-engine init
 Initialize that CHANGE
 ```
 
-Project bootstrap is not an AI-DLC lifecycle stage.
+Project bootstrap and project-context initialization are not lifecycle stages.
 
-### 3. Let the initializer inspect before you answer questions
+### 3. Let the agent initialize project context
 
-The initializer works **inspect first, ask second**. It will:
-
-- resolve the Git project root;
-- offer to initialize Git when the directory is not yet a repository;
-- distinguish a greenfield project from an existing/brownfield project;
-- inspect common project files and dependencies;
-- detect common Node.js, TypeScript, React, Next.js, Vite, Express, Supabase, Prisma, Python, Rust, Go, Docker, and GitHub Actions signals;
-- detect useful verification candidates such as tests, type checks, builds, linting, `pytest`, `cargo test`, and `go test`;
-- ask only for important project information that cannot be safely inferred;
-- install or repair `.agents/skills/aidlc-workflows/` without overwriting existing Skill files;
-- preserve an existing `AGENTS.md` and existing `aidlc-docs/project/*` context;
-- create only missing durable project context;
-- create a safe starter `checks.json` from approved/detected verification commands;
-- validate an existing `checks.json` instead of silently replacing it;
-- run the engine `doctor` at the end;
-- leave lifecycle state untouched — initialization does not create a fake change.
-
-A typical existing-project run may look like:
+After bootstrap, tell the coding agent something like:
 
 ```text
-AI-DLC Slim setup
-
-Project type: brownfield
-Detected stack: Node.js, TypeScript, React, Vite
-Detected checks: npm run test, npm run typecheck, npm run build
-
-? What is this product/project primarily for?
-? Who are the primary users or operators?
-? Is this already used in production or by real users?
-? Does it handle sensitive/personal or security-critical data?
-? I detected Node.js, TypeScript, React, Vite. Is that materially correct?
-? Add npm run test as a required AI-DLC verification check?
-...
-
-Setup summary
-✓ Skill installed/repaired
-✓ Project context created/preserved
-✓ Verification configuration created/validated
-✓ Doctor healthy
-
-Next step:
-  Tell your coding agent:
-  "Use AI-DLC Slim to implement <your change>."
+Initialize/reconcile the AI-DLC Slim project context from this repository.
+Inspect first and ask me only for material intent or constraints you cannot safely infer.
 ```
 
-For a **greenfield project**, the initializer does not invent architecture or a technology stack. If the stack has not been decided, it records that explicitly and leaves the decision for Requirements/Design when enough information exists.
-
-### 4. Know what was created
-
-After initialization, the important repository-local pieces are:
+The Skill instructs the active parent agent to inspect relevant repository evidence such as README/docs, manifests, source boundaries, schemas, CI/deployment configuration, and tests. It then refines:
 
 ```text
-project/
-├── AGENTS.md
-├── .agents/
-│   └── skills/
-│       └── aidlc-workflows/
-│           ├── SKILL.md
-│           ├── references/
-│           ├── schemas/
-│           ├── templates/
-│           └── engine/
-└── aidlc-docs/
-    └── project/
-        ├── brief.md
-        ├── architecture.md
-        ├── tech-stack.md
-        ├── testing.md
-        ├── checks.json
-        └── decisions/
+aidlc-docs/project/
+├── brief.md
+├── architecture.md
+├── tech-stack.md
+├── testing.md
+├── checks.json
+└── decisions/
 ```
 
-The durable project files are intentionally small and should contain only project knowledge that is important, non-obvious, expensive, or unsafe to rediscover.
+Fresh templates contain:
 
-Running `aidlc init` again is safe and idempotent. Existing project context is preserved, while missing Skill/setup files can be repaired.
+```text
+<!-- AI-DLC-CONTEXT: PENDING -->
+```
 
-### 5. Ask your coding agent to use AI-DLC
+The agent removes that marker only after it has actually reconciled the document against repository evidence and material user intent.
 
-Once setup is healthy, normal usage happens through your coding agent rather than by manually operating the engine.
+For an existing/brownfield project, the agent should infer as much as possible instead of interviewing the user about facts already visible in the codebase.
 
-For example:
+For a greenfield project, it should ask only high-value questions such as what is being built, who uses it, and hard constraints. It must not invent an undecided architecture or technology stack.
+
+### 4. Ask your coding agent to use AI-DLC
+
+Normal usage happens through the coding agent rather than by manually operating the engine:
 
 ```text
 Use AI-DLC Slim to add CSV export to the admin orders page.
@@ -163,145 +121,78 @@ Or:
 Implement this change using AI-DLC Slim. Continue through the workflow until you need my approval.
 ```
 
-The agent should handle preflight, engine commands, workflow artifacts, risk routing, state transitions, verification receipts, freshness checks, and delegated work itself.
+The agent handles preflight, engine commands, workflow artifacts, risk routing, state transitions, context reconciliation, verification receipts, freshness checks, and delegated work itself.
 
-When you tell the agent to continue through the workflow until it needs you, that authorization applies to the **agent execution loop**, not just the single `aidlc-engine continue` transition. After entering Implementation, the agent should keep calling `next`, completing each non-human-gated stage, reporting its result, and continuing through Review/rework and Verification automatically.
+### 5. Respond only at real gates
 
-```text
-You: "continue"
-       ↓
-Planning approval recorded
-       ↓
-Implementation
-       ↓
-Review / rework when required
-       ↓
-Verification
-       ↓
-Final Acceptance
-       ↓
-STOP for your explicit acceptance
-```
-
-Entering Implementation, finishing one stage, or seeing successful local tests is not by itself a reason for the agent to stop. It should stop only for a real human gate, a blocker/safety issue, a consequential unapproved decision, an explicit hold, or a terminal state.
-
-### 6. Respond when AI-DLC reaches a gate
-
-The most important user responses are:
+The important user responses are:
 
 ```text
 approve      Approve the Plan and HOLD. Do not implement yet.
 continue     Approve/continue and enter Implementation.
-
-accept       Final acceptance when the workflow asks for it.
-
-<changes>    Explain what should change; the agent should route the
-             workflow back through the appropriate rework path.
+accept       Final acceptance when requested.
+<changes>    Explain what should change.
 ```
 
-`approve` and `continue` intentionally mean different things.
-
-If you say only `approve`, implementation should **not** begin.
-
-### Manual/offline installation
-
-If you do not want to run the package/bootstrap command, you may install AI-DLC Slim manually by copying the complete Skill directory to:
-
-```text
-.agents/skills/aidlc-workflows/
-```
-
-The Skill entry point is:
-
-```text
-.agents/skills/aidlc-workflows/SKILL.md
-```
-
-Starter templates are available under:
-
-```text
-.agents/skills/aidlc-workflows/templates/
-├── AGENTS.md
-└── project/
-    ├── brief.md
-    ├── architecture.md
-    ├── tech-stack.md
-    ├── testing.md
-    └── checks.json
-```
-
-Manual installation is an advanced/fallback path. Prefer `aidlc init` because it inspects the target repository, preserves existing context, guides missing decisions, configures verification, repairs partial setup, and validates the result.
+`approve` and `continue` intentionally mean different things. If you say only `approve`, implementation should **not** begin.
 
 ---
 
 ## What Normal Usage Looks Like
 
-Most users should interact with their coding agent, not with the engine CLI directly.
-
-A typical Standard-risk change looks like this:
+A typical Standard-risk change:
 
 ```text
-You
-│
-│  "Use AI-DLC Slim to add CSV export to the admin orders page."
-│
-▼
-Agent: Preflight
-├── reads project context
-├── runs doctor/status/next
-├── inspects the repository
-└── initializes the change and risk routing
-│
-▼
+User request
+    ↓
+Preflight
+├── doctor / status / next
+├── relevant project context
+├── targeted repository inspection
+├── context reconciliation if stale
+└── risk/routing
+    ↓
 Requirements
-│
-▼
+    ↓
 Design (only if needed)
-│
-▼
+    ↓
 Plan
-│
-▼
+    ↓
 Planning Gate
-│
-│  Agent: "The Plan is ready for approval."
-│
-├── You: "approve"  → approve + HOLD
-│
-└── You: "continue" → enter Implementation
-                         │
-                         ▼
-                    Implementation
-                         │
-                         ▼
-                 Independent Review
-                    (when required)
-                         │
-                         ▼
-                     Verification
-                         │
-                         ▼
-                   Final Acceptance
-                         │
-                 You: "accept"
-                         │
-                         ▼
-                      Complete
+    ├── approve  → HOLD
+    └── continue → Implementation
+                      ↓
+                 implement / test / fix
+                      ↓
+          reconcile durable context
+              if materially changed
+                      ↓
+             Implementation complete
+                      ↓
+            Independent Review
+              (when required)
+                      ↓
+                 Verification
+                      ↓
+              Final Acceptance
+              (when required)
+                      ↓
+                   Complete
 ```
 
-The engine records exact fingerprints and source/evidence receipts as this progresses so an old approval, review, or verification result cannot silently apply to changed work.
+When the user authorizes continuation, entering Implementation is not a stopping condition. The agent should keep advancing through non-human-gated stages until a real human gate, blocker, consequential unapproved decision, explicit hold, or terminal state is reached.
 
-## Human vs Agent Responsibilities
+## Human vs Agent vs Engine
 
 | Human | Active agent/runtime | AI-DLC engine |
 | --- | --- | --- |
-| Defines the requested outcome | Inspects repository/context | Enforces legal transitions |
-| Answers material questions | Classifies risk and workflow flags | Stores canonical state |
-| Approves or requests Plan changes | Writes Requirements/Design/Plan | Enforces approval semantics |
-| Authorizes consequential choices | Implements and delegates work | Locks transactional mutations |
-| Accepts final result when required | Obtains independent review | Tracks artifact/source freshness |
-| Can explicitly accept known risk | Runs/assesses verification | Records executable check receipts |
-| Decides real-world authorization | Updates durable project context | Invalidates stale downstream evidence |
+| Defines requested outcome | Understands repository/project context | Enforces legal transitions |
+| Owns product intent and durable business constraints | Maintains architecture/stack/testing context | Stores canonical state |
+| Answers material unknowns | Classifies risk and workflow flags | Enforces approval semantics |
+| Approves/requests Plan changes | Writes Requirements/Design/Plan | Locks transactional mutations |
+| Authorizes consequential choices | Implements and delegates | Tracks artifact/source freshness |
+| Accepts final result when required | Obtains independent review | Records executable check receipts |
+| Decides real-world authorization | Runs/assesses verification | Invalidates stale downstream evidence |
 
 Delegated workers may help create artifacts or code, but the active parent agent remains responsible for reconciling their work. Workers do not own AI-DLC lifecycle state or approvals.
 
@@ -336,11 +227,12 @@ Preflight is automatic and should not create ceremony. The agent should:
 1. read `AGENTS.md` when present;
 2. run `doctor`;
 3. inspect `status` and `next` if state already exists;
-4. reconcile freshness before doing new lifecycle work when required;
+4. reconcile freshness before new lifecycle work when required;
 5. load only relevant durable project context;
-6. inspect the repository/configuration needed for the request;
-7. classify risk and workflow routing;
-8. initialize a new change only when there is no active non-terminal change.
+6. initialize/reconcile project context when it is pending, materially stale, or incomplete for safe work;
+7. inspect repository/configuration needed for the request;
+8. classify risk and workflow routing;
+9. initialize a new change only when no active non-terminal change exists.
 
 ### Requirements
 
@@ -354,11 +246,13 @@ Design runs only when the change materially affects architecture, boundaries, co
 
 The Plan is an executable work plan with ordered tasks, affected areas, dependencies, verification strategy, and migration/rollback considerations when relevant.
 
-Plan Work checkboxes are also used to track implementation progress.
+Plan Work checkboxes also track implementation progress.
 
 ### Implementation
 
-The active agent executes the approved/current Plan. It may delegate or parallelize work, but it must preserve unrelated changes, reconcile delegated output, keep Plan progress current, and update durable project context when implementation changes project truth.
+The active agent executes the approved/current Plan. It may delegate or parallelize work, but it must preserve unrelated changes, reconcile delegated output, and keep Plan progress current.
+
+When implementation materially changes durable project truth, the agent updates the affected `aidlc-docs/project/` context **before** reporting Implementation complete. This keeps Review and Verification aligned with the project model future work will consume.
 
 ### Review
 
@@ -374,13 +268,56 @@ Standard/High workflows may require explicit final acceptance. Acceptance is bou
 
 ---
 
+## Living Project Context
+
+AI-DLC Slim treats durable context as an agent-maintained project model, not a user maintenance chore.
+
+Core rule:
+
+> The repository is authoritative for observable implementation facts. The user is authoritative for product intent, durable business constraints, and consequential decisions.
+
+Document ownership:
+
+```text
+brief.md          intent-heavy; modify conservatively
+architecture.md   agent-maintained durable architecture/boundaries
+tech-stack.md     agent-maintained real stack/commands/patterns
+testing.md        agent-maintained testing strategy/gaps
+checks.json       trusted executable configuration
+decisions/        consequential durable decisions only
+```
+
+Update context only when a change materially affects how a future agent should understand, modify, verify, secure, deploy, or operate the project.
+
+Usually material:
+
+- new/removed major component or service;
+- database/auth/queue/cache/external integration changes;
+- API, security, trust, or data-ownership boundary changes;
+- deployment/build/run/testing workflow changes;
+- consequential framework/stack changes;
+- durable architecture or operational constraints.
+
+Usually not material:
+
+- variable/function renames;
+- local refactors that preserve boundaries;
+- padding/style changes;
+- typo fixes;
+- small helpers;
+- routine dependency patch updates with no durable constraint.
+
+The Skill contract is in:
+
+```text
+.agents/skills/aidlc-workflows/references/project-context.md
+```
+
 ## Risk Profiles
 
 ### Low
 
-Use for isolated, reversible work with no meaningful security, data, or architecture impact.
-
-Typical flow:
+Isolated, reversible work with no meaningful security, data, or architecture impact.
 
 ```text
 Requirements → Plan → Implementation → Verification
@@ -388,13 +325,11 @@ Requirements → Plan → Implementation → Verification
 
 ### Standard
 
-Use for multi-file/component work, user-visible behavior, moderate API/data impact, or non-trivial rollback/testing complexity.
-
-Planning approval and final acceptance are required. Design and independent Review are explicit routing decisions.
+Multi-file/component work, user-visible behavior, moderate API/data impact, or non-trivial rollback/testing complexity. Planning approval and final acceptance are required. Design and independent Review are explicit routing decisions.
 
 ### High
 
-Use for auth/authorization, sensitive data, migrations, public contracts, infrastructure/deployment, difficult rollback, architecture boundaries, broad refactors, or other production-critical changes.
+Auth/authorization, sensitive data, migrations, public contracts, infrastructure/deployment, difficult rollback, architecture boundaries, broad refactors, or production-critical changes.
 
 High risk requires:
 
@@ -405,9 +340,9 @@ Independent Review
 Final Acceptance
 ```
 
-When uncertain between risk levels, choose the higher one.
+When uncertain, choose the higher risk.
 
-Security activates automatically when the change touches auth, authorization, secrets, PII, payments, uploads, untrusted external input, exposed APIs, production infrastructure, networking, or destructive operations.
+Security activates automatically for auth, authorization, secrets, PII, payments, uploads, untrusted external input, exposed APIs, production infrastructure, networking, or destructive operations.
 
 ## Approval Semantics
 
@@ -420,7 +355,7 @@ At a planning gate:
 | requested modifications | reopen the Plan |
 | ambiguous approval | HOLD |
 
-This protects against an agent interpreting a simple acknowledgement as permission to start implementation.
+This prevents a simple acknowledgement from being interpreted as permission to implement.
 
 ## Freshness and Evidence
 
@@ -443,35 +378,11 @@ Final Acceptance (optional)
    ↓ exact verified source/evidence
 ```
 
-### Why this matters
+If source or a bound artifact changes, old evidence becomes stale rather than silently applying to new work.
 
-Suppose you approve a Plan and then its scope changes. AI-DLC does not merely remember that "the Plan was approved." It compares the current semantic Plan fingerprint with the fingerprint that was approved.
+Changing Plan checkbox progress (`[ ]` → `[x]`) does not stale approval; changing task text/scope/order or upstream Requirements/Design does.
 
-Likewise, if source changes after Review or Verification, the old receipt becomes stale.
-
-### Plan checkbox exception
-
-Changing:
-
-```text
-- [ ] Implement CSV serializer
-```
-
-to:
-
-```text
-- [x] Implement CSV serializer
-```
-
-is execution progress and does **not** invalidate Plan approval.
-
-Changing the task text, scope, ordering, Requirements, or Design does.
-
-### When freshness becomes stale
-
-`next` does not silently continue. It returns a freshness-reconciliation directive.
-
-The normal recovery sequence is:
+When freshness becomes stale:
 
 ```text
 next
@@ -480,18 +391,16 @@ reconcile_freshness
   ↓
 freshness       # read-only explanation
   ↓
-refresh         # explicit deterministic invalidation
+refresh         # deterministic invalidation
   ↓
 next
-  ↓
-resume from the earliest stale dependency
 ```
 
-`refresh` does not delete source or user-authored artifacts. It invalidates only the affected lifecycle receipt and everything downstream that can no longer be trusted.
+`refresh` invalidates only the affected dependency and downstream receipts. It does not delete source or user-authored artifacts.
 
 ## Executable Verification Checks
 
-Projects may define trusted commands in:
+Trusted commands live in:
 
 ```text
 aidlc-docs/project/checks.json
@@ -517,57 +426,33 @@ Example:
 }
 ```
 
-During active Verification, the agent can run:
+During Verification:
 
 ```bash
 node .agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs check unit
 ```
 
-Checks execute with `shell:false`. Receipts record:
+Receipts record the exact command/cwd, timing, exit state, stdout/stderr hashes and byte counts, and source digests before/after. Full output is not persisted.
 
-- exact command and working directory;
-- start time and duration;
-- exit code and timeout status;
-- stdout/stderr hashes and byte counts;
-- source digest before and after execution.
+Commands normally execute without a shell. Windows uses a narrow validated adapter only for known package-manager shims. `checks.json` remains trusted project configuration, not an arbitrary command-execution surface.
 
-Full stdout/stderr is not persisted in `evidence.json`.
-
-If a check modifies source, its receipt is `STALE`, not PASS. Required checks need a current PASS receipt against the exact source and current check definition before Verification can complete.
-
-`checks.json` is **trusted project configuration**. Do not populate it from untrusted runtime/user-controlled input or treat it as an arbitrary command execution API.
-
-### Choosing project checks
-
-Examples of useful project-defined checks include:
-
-```text
-Node/TypeScript    unit tests, typecheck, lint, build
-Python             pytest, static/type checks, package/build checks
-Backend/API        unit + integration/API tests
-Frontend           unit/component tests, typecheck, production build
-Infrastructure     validation/plan commands appropriate to the stack
-```
-
-Only mark checks required when they are part of the project's real verification contract.
+If a check modifies source, its receipt is `STALE`, not PASS. Required checks need current PASS receipts against the exact source and current check definition before Verification can complete.
 
 ## Recovery and Troubleshooting
-
-The agent should normally handle these conditions rather than asking the user to edit engine files manually.
 
 | Condition | Correct response |
 | --- | --- |
 | `FRESHNESS_STALE` / `reconcile_freshness` | run `freshness`, then `refresh`, then resume from `next` |
-| `RECOVERY_REQUIRED` | run `doctor`; use `doctor --repair` only when the engine says recovery is safe |
+| `RECOVERY_REQUIRED` | run `doctor`; use `doctor --repair` only when declared safe |
 | `RECOVERY_CONFLICT` | stop and surface the conflict; do not force recovery |
-| `WORKFLOW_LOCKED` | do not delete the lock blindly; inspect with `doctor` |
-| schema migration required | run `migrate` or safe `doctor --repair` migration path |
-| failed configured check | fix the cause and rerun the check; never weaken the test simply to obtain PASS |
+| `WORKFLOW_LOCKED` | inspect with `doctor`; do not delete the lock blindly |
+| schema migration required | run `migrate` or safe `doctor --repair` migration |
+| failed configured check | fix the cause and rerun; do not weaken the check just to pass |
 | Review fails | return to Implementation, address findings, then re-review |
-| Verification contains `NOT VERIFIED` | keep it explicit and document residual risk; do not silently convert it to PASS |
+| Verification contains `NOT VERIFIED` | keep it explicit and document residual risk |
 | user abandons the change | `cancel --reason "..."` |
 
-Engine-owned files should not be manually edited during normal operation:
+Engine-owned files must not be manually edited during normal operation:
 
 ```text
 aidlc-docs/aidlc-state.json
@@ -578,22 +463,10 @@ aidlc-docs/changes/<change>/evidence.json
 
 ## Project and Change Files
 
-The canonical workflow cursor is:
+Canonical workflow cursor:
 
 ```text
 aidlc-docs/aidlc-state.json
-```
-
-Durable project context:
-
-```text
-aidlc-docs/project/
-├── brief.md
-├── architecture.md
-├── tech-stack.md
-├── testing.md
-├── checks.json
-└── decisions/
 ```
 
 Per-change work:
@@ -610,46 +483,29 @@ aidlc-docs/changes/<date>-<slug>/
 └── evidence.json      # engine-owned
 ```
 
-The Git repository remains authoritative for implementation details. Durable docs should capture decisions, constraints, important commands, architecture, testing expectations, and other context that is expensive or ambiguous to rediscover.
-
-## Updating Durable Project Context
-
-After implementation, update `aidlc-docs/project/` only when the change materially changes durable project truth.
-
-Examples:
-
-- new service/integration boundary → `architecture.md`;
-- changed runtime/deployment/setup → `tech-stack.md`;
-- changed verification convention → `testing.md` or `checks.json`;
-- changed project purpose or permanent constraint → `brief.md`;
-- consequential durable decision with real alternatives → ADR.
-
-Do not create documentation churn for routine implementation details that the repository already makes obvious.
+The Git repository remains authoritative for implementation details. Workflow files under `aidlc-docs/**` are excluded from implementation source identity.
 
 ## What "Complete" Means
 
-A workflow reaching `Complete` means the required lifecycle for that risk/routing decision has been satisfied against current evidence.
+`Complete` means the required lifecycle for the current risk/routing decision has been satisfied against current evidence. Depending on the workflow, that can include current artifact fingerprints, planning approval, source-bound Implementation, independent Review, executable Verification receipts, and final acceptance.
 
-Depending on the workflow, that can include:
+Completion does **not** authorize production deployment or another real-world side effect. Deployments, destructive actions, access changes, external sends, charges, or similar actions still require their own authorization.
 
-- current Requirements/Design/Plan fingerprints;
-- a current planning approval;
-- Implementation bound to a Git source snapshot;
-- current independent Review;
-- current executable Verification receipts;
-- explicit final acceptance.
+## Manual / Offline Installation
 
-Completion does **not** mean deployment or another real-world side effect was authorized. Deployments, destructive production actions, access changes, external sends, charges, or similar actions still require their own explicit authorization.
+As an advanced fallback, copy the complete Skill directory to:
 
-Artifacts and evidence remain in the repository after completion for auditability and future context.
+```text
+.agents/skills/aidlc-workflows/
+```
 
----
+Then copy/use the project templates and let the active agent perform semantic project-context initialization according to `references/project-context.md`.
+
+Prefer `aidlc init` because it safely installs/repairs the Skill, preserves project-owned context, discovers trusted verification candidates, and validates bootstrap health.
 
 ## Manual Engine Usage
 
-Most users do not need this section. It is useful for debugging, integration, or operating AI-DLC without an agent that handles the CLI automatically.
-
-Define a convenience variable in your shell if useful, or invoke the wrapper directly:
+Most users do not need this section.
 
 ```bash
 node .agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs status
@@ -662,48 +518,29 @@ When the Skill is installed outside the managed project, add:
 --root /path/to/project
 ```
 
-### Initialize a change manually
-
-Example Standard-risk change:
-
-```bash
-node .agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs init \
-  --change 2026-09-11-orders-csv-export \
-  --risk standard \
-  --risk-rationale "User-visible multi-file export feature with non-trivial verification" \
-  --design-required false \
-  --planning-gate-required true \
-  --review-required true \
-  --final-acceptance-required true \
-  --security-required false \
-  --request "Add CSV export to the admin orders page"
-```
-
-The active agent is responsible for choosing these risk/routing values based on the actual change. Do not mechanically reuse the example flags.
-
-### Command reference
+Command reference:
 
 ```text
 init
-next                         read-only; returns freshness reconciliation when stale
+next                         read-only; current lifecycle directive
 status                       read-only
 freshness                    read-only freshness diagnostics
-refresh                      reopen earliest stale dependency and invalidate downstream receipts
-doctor [--repair]            diagnostics / conservative safe recovery
+refresh                      reopen earliest stale dependency
+doctor [--repair]            diagnostics / conservative recovery
 migrate                      schema v1/v2 -> v3
 reclassify                   change pre-Implementation risk/routing
-check <name>                 run a trusted configured Verification check
+check <name>                 run a trusted Verification check
 report <event>               report lifecycle completion/verdict/acceptance
 approve                      planning approval + HOLD
 continue                     planning approval/continuation into Implementation
-request-changes              route approved/final work back for revision
+request-changes              route work back for revision
 block --reason "..."
 unblock --reason "..."
 unblock --all
 cancel --reason "..."       terminal cancellation
 ```
 
-Lifecycle report events are:
+Lifecycle report events:
 
 ```text
 requirements_complete
@@ -716,15 +553,13 @@ verification_complete
 accept
 ```
 
-Use the engine README for lower-level implementation details:
+See the engine README for lower-level details:
 
 ```text
 .agents/skills/aidlc-workflows/engine/README.md
 ```
 
-## Engine v0.2 Guarantees
-
-### State and recovery
+## Engine Guarantees
 
 Every mutation is protected by:
 
@@ -734,8 +569,6 @@ aidlc-docs/.aidlc-txn.json
 ```
 
 State revisions are monotonic. Interrupted transactions block progression until conservative recovery succeeds or a recovery conflict is surfaced.
-
-### Filesystem hardening
 
 Realpath containment protects workflow artifact reads and engine control-file writes from path/symlink escapes.
 
@@ -747,15 +580,9 @@ evidence.json                  4 MiB
 transaction journal           16 MiB
 ```
 
-### Conservative migration
+Schema v1/v2 → v3 migration does not fabricate historical freshness receipts. Older claims without compatible evidence become stale and must be reconciled normally.
 
-Schema v1/v2 → v3 migration does not fabricate historical freshness receipts. Older completion/approval claims without v0.2 evidence become stale and must be reconciled normally.
-
-### Source identity
-
-Production freshness requires a Git working tree. Source snapshots include Git tree identity plus changed/untracked file hashes, while workflow files under `aidlc-docs/**` are excluded from implementation source identity.
-
-A dirty file that existed before the workflow and did not change during the workflow is not falsely attributed to the change manifest.
+Production freshness requires a Git working tree. Source snapshots include Git tree identity plus changed/untracked file hashes while workflow files under `aidlc-docs/**` are excluded from implementation source identity.
 
 ## Verification Philosophy
 
@@ -781,7 +608,7 @@ npm test
 npm run test-runtime
 ```
 
-CI runs the full suite against both compiled TypeScript and the committed zero-setup runtime on Node 20 across Linux, macOS, and Windows, then smoke-tests the packaged CLI.
+CI runs the full suite against compiled TypeScript and the committed zero-setup runtime on Node 20, 22, and 24 across Linux, macOS, and Windows, then smoke-tests the guided bootstrap and packaged CLI.
 
 ## Attribution
 
