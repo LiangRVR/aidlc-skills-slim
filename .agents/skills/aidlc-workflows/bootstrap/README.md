@@ -1,44 +1,69 @@
-# Guided Bootstrap
+# Mechanical Bootstrap
 
-`aidlc init` is the user-facing **mechanical project bootstrap** for AI-DLC Slim. It is intentionally separate from both semantic project understanding and the deterministic lifecycle engine.
+`aidlc init` is the lower-level **mechanical bootstrap** used by AI-DLC Slim. It is **not** the complete initialization experience and it does **not** call an AI agent.
 
-Use the concepts for different jobs:
+For normal use, start from your coding agent instead of running this command yourself.
+
+## Recommended initialization
+
+Tell the coding agent that is already working in the repository:
 
 ```text
-aidlc init                 mechanical project bootstrap
+Initialize AI-DLC Slim in this repository.
+```
+
+The active parent agent should then own the entire setup flow:
+
+```text
+User
+  ↓
+"Initialize AI-DLC Slim in this repository"
+  ↓
+Active coding agent
+  ├─ run mechanical bootstrap if AI-DLC Slim is not installed
+  ├─ load the AI-DLC Slim Skill
+  ├─ inspect the repository
+  ├─ initialize/reconcile durable project context
+  ├─ ask only for material intent or constraints it cannot safely infer
+  └─ validate the resulting context
+  ↓
+Project ready
+```
+
+This keeps AI-DLC Slim runtime-agnostic: the Skill defines the methodology, while whatever coding agent/runtime the user is already using performs the semantic work.
+
+## Important: `aidlc init` does not call an agent
+
+This command:
+
+```bash
+npm exec --yes --package=github:LiangRVR/aidlc-skills-slim -- aidlc init --yes
+```
+
+runs a Node.js CLI only. It cannot invoke a universal "current coding agent" because no runtime-agnostic agent API exists across OpenCode, OMO Slim, Claude Code, Codex, and other hosts.
+
+The command performs only the safe mechanical portion of setup. If a user runs it manually, they must still return to their coding agent and ask it to initialize/reconcile the AI-DLC project context.
+
+A suitable follow-up is:
+
+```text
+Initialize/reconcile the AI-DLC Slim project context from this repository.
+Inspect first and ask me only for material intent or constraints you cannot safely infer.
+```
+
+## Responsibility split
+
+```text
+aidlc init                 mechanical bootstrap only
 active parent agent        semantic project initialization/reconciliation
 aidlc-engine init          initialize one software change
 ```
 
 Project bootstrap and semantic project initialization are **not** lifecycle stages. They do not create, advance, or reset an AI-DLC change.
 
-## Recommended first run
+## What the mechanical bootstrap does
 
-The best experience is to let the current coding agent own the complete setup:
-
-```text
-Initialize AI-DLC Slim in this repository. Run the mechanical bootstrap if needed,
-then inspect the repository and initialize/reconcile the durable project context.
-Ask me only for material intent or constraints you cannot safely infer.
-```
-
-If the Skill is not installed yet, the agent can run the package bootstrap from the project directory:
-
-```bash
-npm exec --yes --package=github:LiangRVR/aidlc-skills-slim -- aidlc init --yes
-```
-
-The CLI can also be run manually:
-
-```bash
-aidlc init
-```
-
-After a manual CLI run, the active coding agent must still perform semantic project initialization before relying on placeholder project context.
-
-## What the CLI does
-
-The mechanical initializer:
+The CLI:
 
 - requires Node.js 20+ and Git;
 - resolves the containing Git project root, even when run from a nested directory;
@@ -59,13 +84,13 @@ The mechanical initializer:
 
 The CLI intentionally does **not** decide or write project purpose, users, architecture, architecture rationale, security boundaries, deployment topology, or testing strategy. Those require semantic understanding and belong to the active parent agent.
 
-## What the agent does next
+## What the agent does
 
-After mechanical bootstrap, the Skill tells the active parent agent to load `references/project-context.md` and inspect the repository before asking questions.
+After mechanical bootstrap, the active parent agent loads `references/project-context.md` and inspects the repository before asking questions.
 
-For an existing project, the agent should usually be able to infer most of the baseline from README/docs, manifests, source boundaries, schemas, CI/deployment configuration, tests, and other repository evidence.
+For an existing project, it should usually infer most of the baseline from README/docs, manifests, source boundaries, schemas, CI/deployment configuration, tests, and other repository evidence.
 
-For a greenfield project, the agent should ask only high-value questions such as product purpose, primary users, and hard constraints. It must not invent an undecided architecture or stack.
+For a greenfield project, it should ask only high-value questions such as product purpose, primary users, and hard constraints. It must not invent an undecided architecture or stack.
 
 Fresh templates contain:
 
@@ -75,6 +100,28 @@ Fresh templates contain:
 
 The agent removes that marker only after it has semantically reconciled that document against repository evidence and material user intent.
 
+## Manual use of the bootstrap CLI
+
+Manual execution is supported for advanced/offline setup or troubleshooting:
+
+```bash
+npm exec --yes --package=github:LiangRVR/aidlc-skills-slim -- aidlc init
+```
+
+For non-interactive mechanical bootstrap:
+
+```bash
+aidlc init --yes
+```
+
+A different target can be supplied with:
+
+```bash
+aidlc init --root /path/to/project
+```
+
+`--yes` uses conservative mechanical defaults: detected required checks are configured, optional checks are not automatically promoted to required, and existing project-owned files remain untouched.
+
 ## Existing setup and repair
 
 `aidlc init` is idempotent. Running it again preserves existing project-owned context and repairs missing setup files only when the installed Skill carries the same installation version marker as the initializer.
@@ -83,23 +130,7 @@ This restriction prevents an old engine/runtime from being silently mixed with f
 
 If an AI-DLC workflow is already active, its state is preserved.
 
-## Automation
-
-For non-interactive bootstrap:
-
-```bash
-aidlc init --yes
-```
-
-`--yes` uses conservative mechanical defaults: detected required checks are configured, optional checks are not automatically promoted to required, and existing project-owned files remain untouched.
-
-A different target can be supplied with:
-
-```bash
-aidlc init --root /path/to/project
-```
-
-## Result
+## Result of mechanical bootstrap
 
 A successful bootstrap leaves the project with the repository-local Skill plus durable-context templates similar to:
 
@@ -115,4 +146,4 @@ aidlc-docs/project/
 └── decisions/
 ```
 
-The active coding agent then turns those templates into useful durable context and maintains them as the project grows. The user should not need to manually synchronize architecture, stack, testing, or other observable project facts after every change.
+At this point the project is **mechanically bootstrapped, not semantically initialized**. The active coding agent must turn those templates into useful durable context and will continue maintaining them as the project grows.
