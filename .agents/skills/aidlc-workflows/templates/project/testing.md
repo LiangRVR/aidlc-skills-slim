@@ -1,6 +1,10 @@
+<!-- AI-DLC-CONTEXT: PENDING -->
 # Testing
 
-Last verified: [YYYY-MM]
+Last verified: Not yet semantically initialized.
+
+## Project Testing Strategy
+TBD — infer the real test layers, environments, runtime/manual checks, and known gaps from repository evidence. Do not invent a test framework for greenfield work.
 
 ## Required Before Completion
 - Relevant tests pass.
@@ -11,20 +15,20 @@ Last verified: [YYYY-MM]
 - Unchecked behavior is reported as `NOT VERIFIED`.
 
 ## Commands
-- Unit: `[command]`
-- Integration: `[command]`
-- Typecheck: `[command]`
-- Lint/format: `[command]`
-- Build: `[command]`
-- E2E/runtime: `[command or manual flow]`
+- Unit: TBD / not configured
+- Integration: TBD / not configured
+- Typecheck: TBD / not configured
+- Lint/format: TBD / not configured
+- Build: TBD / not configured
+- E2E/runtime: TBD / not configured
 
 ## Minimum Checks by Change Type
 | Change | Minimum evidence |
 |---|---|
-| Pure logic | focused unit test |
+| Pure logic | focused unit test when a test layer exists or can reasonably be added |
 | API/data flow | integration/contract check |
 | UI behavior | runtime/browser/device check |
 | Auth/security | focused authorization/security check + review when high risk |
 | Migration/infrastructure | validation + rollback/recovery evidence |
 
-Keep this file project-specific. Per-change evidence belongs in that change's `verification.md`.
+Remove the `AI-DLC-CONTEXT: PENDING` marker after this document has been reconciled by the active parent agent. Keep this file project-specific. Per-change evidence belongs in that change's `verification.md`.
