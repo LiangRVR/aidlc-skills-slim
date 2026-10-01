@@ -19,16 +19,19 @@ test('aidlc help prints user-facing commands', () => {
   assert.match(result.stdout, /aidlc init/);
 });
 
-test('aidlc init --yes bootstraps an existing repository non-interactively', async () => {
+test('aidlc init --yes performs mechanical bootstrap and hands semantic context to the agent', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aidlc-cli-'));
   git(root, ['init']);
   await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'cli-app', scripts: { test: 'node --test' } }, null, 2));
   const result = spawnSync(process.execPath, [CLI, 'init', '--root', root, '--yes'], { encoding: 'utf8', shell: false });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /AI-DLC Slim setup/);
+  assert.match(result.stdout, /AI-DLC Slim mechanical bootstrap/);
+  assert.match(result.stdout, /Semantic project initialization is owned by the active coding agent/);
   assert.match(result.stdout, /Next step/);
   const checks = JSON.parse(await readFile(join(root, 'aidlc-docs', 'project', 'checks.json'), 'utf8'));
   assert.ok(checks.checks.test);
+  const brief = await readFile(join(root, 'aidlc-docs', 'project', 'brief.md'), 'utf8');
+  assert.match(brief, /AI-DLC-CONTEXT: PENDING/);
 });
 
 test('aidlc init refuses a managed path symlink that escapes the project', async (t) => {
