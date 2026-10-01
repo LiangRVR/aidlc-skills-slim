@@ -30,6 +30,7 @@ test('packed npm artifact exposes aidlc and installs the complete Skill', async 
   const packedFiles = new Set((metadata[0].files ?? []).map((item) => item.path));
   assert.ok(packedFiles.has('bin/aidlc.mjs'), 'package is missing the npm aidlc launcher');
   assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/SKILL.md'), 'package is missing SKILL.md');
+  assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/references/project-context.md'), 'package is missing project-context contract');
   assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/bootstrap/installation.json'), 'package is missing the Skill installation version marker');
   assert.ok(packedFiles.has('.agents/skills/aidlc-workflows/engine/bin/aidlc-engine.mjs'), 'package is missing the engine runtime entrypoint');
 
@@ -42,14 +43,19 @@ test('packed npm artifact exposes aidlc and installs the complete Skill', async 
 
     const execution = npm(['exec', '--yes', '--package', tarball, '--', 'aidlc', 'init', '--root', root, '--yes'], REPO_ROOT);
     assert.equal(execution.status, 0, `${execution.error?.message ?? ''}\n${execution.stdout}\n${execution.stderr}`);
-    assert.match(execution.stdout, /AI-DLC Slim setup/);
+    assert.match(execution.stdout, /AI-DLC Slim mechanical bootstrap/);
+    assert.match(execution.stdout, /Semantic project initialization is owned by the active coding agent/);
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'SKILL.md')));
+    assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'references', 'project-context.md')));
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'bootstrap', 'installation.json')));
     assert.ok(existsSync(join(root, '.agents', 'skills', 'aidlc-workflows', 'engine', 'bin', 'aidlc-engine.mjs')));
     assert.ok(existsSync(join(root, 'aidlc-docs', 'project', 'brief.md')));
     const installedSkill = await readFile(join(root, '.agents', 'skills', 'aidlc-workflows', 'SKILL.md'), 'utf8');
+    assert.match(installedSkill, /## Project bootstrap and agent-driven initialization/);
     assert.match(installedSkill, /## Autonomous continuation/);
     assert.match(installedSkill, /Entering Implementation after `continue` is not a stopping condition/);
+    const installedBrief = await readFile(join(root, 'aidlc-docs', 'project', 'brief.md'), 'utf8');
+    assert.match(installedBrief, /AI-DLC-CONTEXT: PENDING/);
   } finally {
     await rm(tarball, { force: true });
   }

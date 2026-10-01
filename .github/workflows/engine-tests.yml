@@ -10,6 +10,7 @@ on:
       - '.agents/skills/aidlc-workflows/engine/**'
       - '.agents/skills/aidlc-workflows/SKILL.md'
       - '.agents/skills/aidlc-workflows/references/engine-*.md'
+      - '.agents/skills/aidlc-workflows/references/project-context.md'
       - '.agents/skills/aidlc-workflows/references/state.md'
       - '.agents/skills/aidlc-workflows/references/transition-contract.md'
       - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
@@ -25,6 +26,7 @@ on:
       - '.agents/skills/aidlc-workflows/engine/**'
       - '.agents/skills/aidlc-workflows/SKILL.md'
       - '.agents/skills/aidlc-workflows/references/engine-*.md'
+      - '.agents/skills/aidlc-workflows/references/project-context.md'
       - '.agents/skills/aidlc-workflows/references/state.md'
       - '.agents/skills/aidlc-workflows/references/transition-contract.md'
       - '.agents/skills/aidlc-workflows/references/completion-predicates.md'
@@ -58,7 +60,7 @@ jobs:
         if: runner.os == 'Linux' && matrix.node == 22
         uses: actions/upload-artifact@v4
         with:
-          name: generated-runtime-v0.2
+          name: generated-runtime-v0.3
           path: .agents/skills/aidlc-workflows/engine/dist/src
           if-no-files-found: error
       - name: Test committed zero-setup runtime with same suite

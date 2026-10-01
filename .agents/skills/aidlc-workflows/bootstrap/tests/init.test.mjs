@@ -27,28 +27,34 @@ async function writeSkillVersion(skill, version = CURRENT_SKILL_VERSION) {
   await writeFile(join(skill, 'bootstrap', 'installation.json'), JSON.stringify({ schema_version: 1, skill_version: version }, null, 2) + '\n');
 }
 
-test('greenfield bootstrap creates baseline without inventing a stack', async () => {
+test('greenfield bootstrap creates agent-initialization templates without inventing project truth', async () => {
   const root = await repo();
   const result = await initProject({ root, yes: true });
   assert.equal(result.project.kind, 'greenfield');
   assert.ok(existsSync(join(root, 'AGENTS.md')));
   assert.ok(existsSync(join(root, 'aidlc-docs', 'project', 'brief.md')));
   assert.ok(existsSync(join(root, 'aidlc-docs', 'project', 'checks.json')));
+  const brief = await readFile(join(root, 'aidlc-docs', 'project', 'brief.md'), 'utf8');
   const stack = await readFile(join(root, 'aidlc-docs', 'project', 'tech-stack.md'), 'utf8');
-  assert.match(stack, /Undecided/);
+  assert.match(brief, /AI-DLC-CONTEXT: PENDING/);
+  assert.match(stack, /AI-DLC-CONTEXT: PENDING/);
+  assert.match(stack, /TBD|Unknown/);
   assert.equal(result.doctor.ok, true);
 });
 
-test('README-only repository is still treated as greenfield', async () => {
+test('README-only repository is still greenfield and repository prose is not copied into durable context by code', async () => {
   const root = await repo();
   await writeFile(join(root, 'README.md'), '# New Product\n\nA product that still needs its implementation stack.\n');
   const result = await initProject({ root, yes: true });
   assert.equal(result.project.kind, 'greenfield');
   assert.equal(result.project.name, 'New Product');
-  assert.match(await readFile(join(root, 'aidlc-docs', 'project', 'brief.md'), 'utf8'), /A product that still needs its implementation stack/);
+  assert.equal(result.project.description, 'A product that still needs its implementation stack.');
+  const brief = await readFile(join(root, 'aidlc-docs', 'project', 'brief.md'), 'utf8');
+  assert.match(brief, /AI-DLC-CONTEXT: PENDING/);
+  assert.doesNotMatch(brief, /A product that still needs its implementation stack/);
 });
 
-test('brownfield bootstrap detects Node TypeScript and safe package scripts', async () => {
+test('brownfield bootstrap detects Node TypeScript and safe package scripts without semantically populating context', async () => {
   const root = await repo();
   await writeFile(join(root, 'package.json'), JSON.stringify({
     name: 'sample-app',
@@ -65,6 +71,9 @@ test('brownfield bootstrap detects Node TypeScript and safe package scripts', as
   const checks = JSON.parse(await readFile(join(root, 'aidlc-docs', 'project', 'checks.json'), 'utf8'));
   assert.deepEqual(Object.keys(checks.checks).sort(), ['build', 'test', 'typecheck']);
   assert.deepEqual(checks.checks.test.command, ['npm', 'run', 'test']);
+  const stack = await readFile(join(root, 'aidlc-docs', 'project', 'tech-stack.md'), 'utf8');
+  assert.match(stack, /AI-DLC-CONTEXT: PENDING/);
+  assert.doesNotMatch(stack, /^- React$/m);
 });
 
 test('placeholder npm test script is not proposed as verification', async () => {
@@ -129,15 +138,16 @@ test('different-version Skill installation is refused instead of mixed', async (
   assert.equal(existsSync(join(skill, 'engine')), false);
 });
 
-test('existing generated TBD brief can be completed from repository context', async () => {
+test('bootstrap preserves generated TBD context for the active agent instead of semantically completing it', async () => {
   const root = await repo();
   await mkdir(join(root, 'aidlc-docs', 'project'), { recursive: true });
   await writeFile(join(root, 'README.md'), '# Context App\n\nManages fellowship application workflows for staff.\n');
-  await writeFile(join(root, 'aidlc-docs', 'project', 'brief.md'), '# Project Brief\n\n## Purpose\nTBD\n\n## Primary users\nStaff\n');
+  const existing = '# Project Brief\n\n## Purpose\nTBD\n\n## Primary users\nStaff\n';
+  await writeFile(join(root, 'aidlc-docs', 'project', 'brief.md'), existing);
   await initProject({ root, yes: true });
   const brief = await readFile(join(root, 'aidlc-docs', 'project', 'brief.md'), 'utf8');
-  assert.match(brief, /Manages fellowship application workflows for staff/);
-  assert.doesNotMatch(brief, /## Purpose\nTBD/);
+  assert.equal(brief, existing);
+  assert.doesNotMatch(brief, /Manages fellowship application workflows for staff/);
 });
 
 test('oversized bootstrap inspection input is rejected before read', async () => {

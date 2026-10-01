@@ -1,33 +1,34 @@
+<!-- AI-DLC-CONTEXT: PENDING -->
 # Tech Stack
 
-Last verified: [YYYY-MM]
+Last verified: Not yet semantically initialized.
 
 ## Stack
 | Area | Choice | Notes |
 |---|---|---|
-| Frontend | [framework/version] | [why / constraint] |
-| Backend | [framework/runtime] | [why / constraint] |
-| Database | [database/ORM] | [local + production] |
-| Auth | [provider] | [roles/sessions] |
-| Styling | [library/system] | [constraints] |
-| Deployment | [host/runtime] | [preview/production] |
+| Frontend | TBD / not applicable | Infer from repository evidence. |
+| Backend | TBD / not applicable | Infer from repository evidence. |
+| Database | TBD / not applicable | Include local/production differences only when supported. |
+| Auth | TBD / not applicable | Include durable roles/session constraints when known. |
+| Styling | TBD / not applicable | Record only useful constraints. |
+| Deployment | Unknown unless confirmed | Do not guess hosting/runtime. |
 
 ## Commands
 Include only commands or flags that are non-obvious or important for reliable agent execution.
 
-- Setup: `[command]`
-- Dev: `[command]`
-- Test: `[command]`
-- Typecheck: `[command]`
-- Lint/format: `[command]`
-- Build: `[command]`
-- E2E/runtime check: `[command or manual flow]`
+- Setup: TBD
+- Dev: TBD
+- Test: TBD
+- Typecheck: TBD
+- Lint/format: TBD
+- Build: TBD
+- E2E/runtime check: TBD
 
 ## Important Patterns
-- Data access: [pattern]
-- State management: [pattern]
-- Validation: [pattern]
-- Error handling: [pattern]
-- Logging/monitoring: [pattern]
+- Data access: TBD
+- State management: TBD / not applicable
+- Validation: TBD
+- Error handling: TBD
+- Logging/monitoring: TBD
 
-Do not copy dependency manifests here. Record choices and constraints that are easy to misuse or expensive to rediscover.
+Remove the `AI-DLC-CONTEXT: PENDING` marker after this document has been reconciled by the active parent agent. Do not copy dependency manifests here. Record choices and constraints that are easy to misuse or expensive to rediscover.

@@ -1,28 +1,29 @@
+<!-- AI-DLC-CONTEXT: PENDING -->
 # Architecture
 
-Last verified: [YYYY-MM]
+Last verified: Not yet semantically initialized.
 
 ## System Shape
-[High-level architecture and boundaries.]
+TBD — infer the high-level architecture and boundaries from repository evidence. Leave genuinely undecided greenfield choices explicit.
 
 ## Major Components
 | Component | Responsibility | Depends on |
 |---|---|---|
-| [name] | [responsibility] | [dependencies] |
+| TBD | TBD | TBD |
 
 ## Data / Control Flow
-[Only durable, non-obvious flows.]
+TBD — keep only durable, non-obvious flows.
 
 ## Integrations
-- [external service/API and purpose]
+- TBD
 
 ## Security Boundaries
-- [trust boundary / authorization boundary]
+- TBD — include trust/auth/data boundaries only when supported or confirmed.
 
 ## Deployment Shape
-- [runtime topology / environments]
+- Unknown unless repository/configuration or the user confirms it.
 
 ## Architectural Invariants
-- [rule future changes must preserve]
+- TBD — record only rules future changes must preserve.
 
-Do not duplicate the repository tree or dependency manifest here.
+Remove the `AI-DLC-CONTEXT: PENDING` marker after this document has been reconciled by the active parent agent. Do not duplicate the repository tree or dependency manifest here.

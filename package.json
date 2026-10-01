@@ -1,8 +1,8 @@
 {
   "name": "aidlc-skills-slim",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "private": true,
-  "description": "Runtime-agnostic AI-DLC workflow Skill with deterministic lifecycle, freshness, evidence, and guided project bootstrap.",
+  "description": "Runtime-agnostic AI-DLC workflow Skill with agent-driven project context, deterministic lifecycle, freshness, evidence, and safe mechanical bootstrap.",
   "license": "MIT",
   "type": "module",
   "bin": {

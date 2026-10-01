@@ -71,6 +71,9 @@ function validPackageScript(name, value) {
   return true;
 }
 
+// Bootstrap detection is intentionally mechanical. These signals may help select
+// safe repository-defined verification commands, but they are not durable project
+// truth. Semantic project understanding belongs to the active parent agent.
 async function detectProject(root) {
   const pkg = await readProjectJson(root, 'package.json');
   const deps = depsOf(pkg);
@@ -135,17 +138,11 @@ async function detectProject(root) {
 
 async function promptFactory(yes) {
   if (yes) return {
-    text: async (_q, fallback = '') => fallback,
     yesNo: async (_q, fallback = true) => fallback,
     close: () => {},
   };
   const rl = createInterface({ input, output });
   return {
-    text: async (q, fallback = '') => {
-      const suffix = fallback ? ` [${fallback}]` : '';
-      const answer = (await rl.question(`${q}${suffix}: `)).trim();
-      return answer || fallback;
-    },
     yesNo: async (q, fallback = true) => {
       const hint = fallback ? 'Y/n' : 'y/N';
       while (true) {
@@ -190,32 +187,6 @@ async function writeIfMissing(path, content) {
   return true;
 }
 
-function sectionValue(text, heading) {
-  if (!text) return null;
-  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = text.match(new RegExp(`^## ${escaped}\\s*\\n([^\\n]*)`, 'mi'));
-  return match?.[1]?.trim() ?? null;
-}
-
-function needsSectionValue(text, heading) {
-  const value = sectionValue(text, heading);
-  return value === null || value === '' || /^TBD\b/i.test(value);
-}
-
-function fillSectionValue(text, heading, value) {
-  if (!value || !needsSectionValue(text, heading)) return text;
-  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(`(^## ${escaped}\\s*\\n)[^\\n]*`, 'mi'), `$1${value}`);
-}
-
-function fillStackPlaceholders(text, stacks) {
-  if (!text || !stacks.length) return text;
-  let next = text;
-  next = next.replace(/(^## Status\s*\n)Undecided[^\n]*/mi, '$1Observed/confirmed from setup answers.');
-  next = next.replace(/(^## Detected technologies\s*\n)- Undecided\s*$/mi, `$1${stacks.map((item) => `- ${item}`).join('\n')}`);
-  return next;
-}
-
 async function skillVersion(path) {
   const parsed = JSON.parse(await readFile(path, 'utf8'));
   if (parsed?.schema_version !== 1 || typeof parsed.skill_version !== 'string' || !parsed.skill_version) {
@@ -239,25 +210,6 @@ async function assertCompatibleInstalledSkill(root, installedSkill) {
   if (target?.schema_version !== 1 || target.skill_version !== sourceVersion) {
     throw new Error(`AI-DLC Skill version mismatch: project has ${target?.skill_version ?? 'unknown'}, initializer is ${sourceVersion}. Refusing mixed-version repair; back up/remove the existing Skill and rerun aidlc init.`);
   }
-}
-
-function briefContent({ project, purpose, users, production, sensitive }) {
-  return `# Project Brief\n\n## Purpose\n${purpose || 'TBD — clarify the product purpose before consequential implementation decisions.'}\n\n## Primary users\n${users || 'TBD'}\n\n## Scope\nMaintain this section with durable product scope and permanent constraints only.\n\n## Operational context\n- Project: ${project.name}\n- Lifecycle state: ${production ? 'Already used in production or production-like operation' : 'Not confirmed as production'}\n- Sensitive/personal data: ${sensitive ? 'Yes or possible — treat privacy/security as consequential' : 'Not currently identified'}\n\n## Non-goals\nRecord durable non-goals when they become known.\n`;
-}
-
-function architectureContent(project) {
-  const detected = project.stacks.length ? project.stacks.join(', ') : 'No architecture/stack safely inferred yet';
-  return `# Architecture\n\n## Observed baseline\n${detected}.\n\n## Boundaries and data flow\nDocument only durable, repository-supported boundaries. For greenfield projects, leave undecided architecture explicit until Design approves it.\n\n## Integrations and security boundaries\nAdd external systems, trust boundaries, auth/authorization boundaries, sensitive-data flows, and deployment boundaries when known.\n\n## Invariants\nRecord architecture rules that future changes must preserve.\n`;
-}
-
-function techStackContent(project, stackDecision) {
-  const detected = project.stacks.length ? project.stacks.map((item) => `- ${item}`).join('\n') : '- Undecided';
-  return `# Tech Stack\n\n## Status\n${project.kind === 'greenfield' && !stackDecision ? 'Undecided — choose through Requirements/Design when enough information exists.' : 'Observed/confirmed from the repository and setup answers.'}\n\n## Detected technologies\n${detected}\n\n## Important commands\nAdd only non-obvious setup, run, build, migration, or deployment commands that are expensive to rediscover.\n\n## Rationale and constraints\nRecord durable reasons for consequential stack choices; do not duplicate package manifests.\n`;
-}
-
-function testingContent(checks) {
-  const lines = checks.length ? checks.map((item) => `- ${item.name}: \`${item.command.join(' ')}\`${item.required ? ' (required)' : ''}`).join('\n') : '- No executable checks configured yet.';
-  return `# Testing and Verification\n\n## Executable checks\n${lines}\n\n## Runtime/user-surface verification\nDescribe browser, device, integration, data, or operational checks that cannot be proven by automated commands alone.\n\n## Minimum expectations\nUnchecked behavior is NOT VERIFIED. Do not weaken a failing check merely to obtain PASS.\n`;
 }
 
 function checksConfig(checks) {
@@ -290,9 +242,9 @@ export async function initProject({ root: requestedRoot, yes = false } = {}) {
 
     await assertBootstrapPathsContained(root);
     const project = await detectProject(root);
-    output.write(`\nAI-DLC Slim setup\nProject root: ${root}\nProject type: ${project.kind}\n`);
-    if (project.stacks.length) output.write(`Detected stack: ${project.stacks.join(', ')}\n`);
-    if (project.checkCandidates.length) output.write(`Detected checks: ${project.checkCandidates.map((item) => item.command.join(' ')).join(', ')}\n`);
+    output.write(`\nAI-DLC Slim mechanical bootstrap\nProject root: ${root}\nProject type: ${project.kind}\n`);
+    if (project.stacks.length) output.write(`Observed stack signals: ${project.stacks.join(', ')}\n`);
+    if (project.checkCandidates.length) output.write(`Detected repository checks: ${project.checkCandidates.map((item) => item.command.join(' ')).join(', ')}\n`);
 
     const installedSkill = join(root, '.agents', 'skills', 'aidlc-workflows');
     if (resolve(installedSkill) !== resolve(SKILL_ROOT)) {
@@ -309,95 +261,34 @@ export async function initProject({ root: requestedRoot, yes = false } = {}) {
     const baselineDir = join(root, 'aidlc-docs', 'project');
     await mkdir(join(baselineDir, 'decisions'), { recursive: true });
 
-    const briefPath = join(baselineDir, 'brief.md');
-    const architecturePath = join(baselineDir, 'architecture.md');
-    const stackPath = join(baselineDir, 'tech-stack.md');
-    const testingPath = join(baselineDir, 'testing.md');
+    for (const name of ['brief.md', 'architecture.md', 'tech-stack.md', 'testing.md']) {
+      const target = join(baselineDir, name);
+      if (await copyFileIfMissing(join(TEMPLATE_ROOT, 'project', name), target)) created.push(`aidlc-docs/project/${name}`);
+      else preserved.push(`aidlc-docs/project/${name}`);
+    }
+
     const checksPath = join(baselineDir, 'checks.json');
-    const existingBrief = await readProjectText(root, 'aidlc-docs/project/brief.md');
-    const existingStack = await readProjectText(root, 'aidlc-docs/project/tech-stack.md');
-
-    let purpose = '';
-    let users = '';
-    let production = false;
-    let sensitive = false;
-    let stackDecision = project.stacks.length > 0;
-    let completedBrief = existingBrief;
-    let completedStack = existingStack;
-
-    if (!existingBrief || needsSectionValue(existingBrief, 'Purpose') || needsSectionValue(existingBrief, 'Primary users')) {
-      if (!existingBrief || needsSectionValue(existingBrief, 'Purpose')) purpose = await prompts.text('What is this product/project primarily for?', project.description || '');
-      if (!existingBrief || needsSectionValue(existingBrief, 'Primary users')) users = await prompts.text('Who are the primary users or operators?', 'TBD');
-      if (!existingBrief) {
-        production = await prompts.yesNo('Is this already used in production or by real users?', false);
-        sensitive = await prompts.yesNo('Does it handle sensitive/personal data, auth, payments, secrets, or other security-critical information?', false);
-      } else {
-        completedBrief = fillSectionValue(completedBrief, 'Purpose', purpose);
-        completedBrief = fillSectionValue(completedBrief, 'Primary users', users);
-      }
-    }
-
-    if (!existingStack) {
-      if (project.kind === 'greenfield' && !project.stacks.length) {
-        stackDecision = await prompts.yesNo('Has the technology stack already been decided?', false);
-        if (stackDecision) {
-          const stack = await prompts.text('Briefly describe the decided stack', '');
-          if (stack) project.stacks = stack.split(',').map((item) => item.trim()).filter(Boolean);
-        }
-      } else if (project.stacks.length && !yes) {
-        const correct = await prompts.yesNo(`I detected ${project.stacks.join(', ')}. Is that materially correct?`, true);
-        if (!correct) {
-          const correction = await prompts.text('Enter a short corrected stack summary', project.stacks.join(', '));
-          project.stacks = correction.split(',').map((item) => item.trim()).filter(Boolean);
-        }
-      }
-    } else if (/^- Undecided\s*$/mi.test(existingStack) && !yes) {
-      stackDecision = await prompts.yesNo('The existing project baseline still marks the technology stack as undecided. Has it now been decided?', false);
-      if (stackDecision) {
-        const stack = await prompts.text('Briefly describe the decided stack', project.stacks.join(', '));
-        const stacks = stack.split(',').map((item) => item.trim()).filter(Boolean);
-        if (stacks.length) {
-          project.stacks = stacks;
-          completedStack = fillStackPlaceholders(existingStack, stacks);
-        }
-      }
-    }
-
-    const selectedChecks = [];
     if (!existsSync(checksPath)) {
+      const selectedChecks = [];
       for (const candidate of project.checkCandidates) {
         const use = yes ? candidate.required : await prompts.yesNo(`Use '${candidate.command.join(' ')}' as ${candidate.required ? 'a required' : 'an optional'} verification check?`, candidate.required);
         if (use) selectedChecks.push(candidate);
       }
-    }
-
-    const files = [
-      [briefPath, briefContent({ project, purpose, users, production, sensitive }), 'aidlc-docs/project/brief.md', existingBrief, completedBrief],
-      [architecturePath, architectureContent(project), 'aidlc-docs/project/architecture.md', null, null],
-      [stackPath, techStackContent(project, stackDecision), 'aidlc-docs/project/tech-stack.md', existingStack, completedStack],
-      [testingPath, testingContent(selectedChecks), 'aidlc-docs/project/testing.md', null, null],
-      [checksPath, checksConfig(selectedChecks), 'aidlc-docs/project/checks.json', null, null],
-    ];
-
-    for (const [path, content, label, existing, completed] of files) {
-      if (await writeIfMissing(path, content)) created.push(label);
-      else if (existing !== null && completed !== null && completed !== existing) {
-        await writeFile(path, completed, 'utf8');
-        created.push(`${label} (completed placeholders)`);
-      } else preserved.push(label);
-    }
+      if (await writeIfMissing(checksPath, checksConfig(selectedChecks))) created.push('aidlc-docs/project/checks.json');
+    } else preserved.push('aidlc-docs/project/checks.json');
 
     readChecksConfig(root);
     const engine = new AidlcEngine(root);
     const report = engine.doctor(false);
     const health = summarizeDoctor(report);
 
-    output.write(`\nSetup summary\n`);
+    output.write(`\nBootstrap summary\n`);
     output.write(`Created/repaired: ${created.length ? created.join(', ') : 'nothing (existing setup preserved)'}\n`);
     if (preserved.length) output.write(`Preserved: ${preserved.join(', ')}\n`);
     output.write(`Doctor: ${report.ok ? 'healthy' : health}\n`);
-    if (existsSync(join(root, 'aidlc-docs', 'aidlc-state.json'))) output.write('Existing workflow state was preserved; init does not create, advance, or reset a change.\n');
-    output.write(`\nNext step:\n  Tell your coding agent: \"Use AI-DLC Slim to implement <your change>.\"\n`);
+    if (existsSync(join(root, 'aidlc-docs', 'aidlc-state.json'))) output.write('Existing workflow state was preserved; bootstrap does not create, advance, or reset a change.\n');
+    output.write('\nSemantic project initialization is owned by the active coding agent, not this CLI.\n');
+    output.write('Next step:\n  Tell your coding agent: "Initialize/reconcile the AI-DLC Slim project context from this repository, then continue with my requested work."\n');
 
     if (!report.ok) process.exitCode = 1;
     return { root, project, created, preserved, doctor: report };
